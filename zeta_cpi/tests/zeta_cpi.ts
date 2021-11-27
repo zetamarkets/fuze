@@ -29,6 +29,9 @@ describe("zeta_cpi", () => {
       zetaGroup,
       userKey
     );
+    console.log(`User: ${userKey}`);
+    console.log(`Zeta group account: ${zetaGroup}`);
+    console.log(`Margin account: ${zetaGroup}`);
     const tx = await program.rpc.initializeMarginAccount({
       accounts: {
         zetaProgram: zetaProgram,
