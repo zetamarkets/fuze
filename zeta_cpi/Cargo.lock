@@ -1102,5 +1102,6 @@ name = "zeta_cpi"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "sha2",
  "solana-program",
 ]

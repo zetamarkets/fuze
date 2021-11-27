@@ -1,65 +1,88 @@
 
-// extern crate proc_macro;
-
 use anchor_lang::prelude::*;
 pub mod constants;
 use crate::constants::*;
 pub mod client;
-// use crate::client::initialize;
+use sha2::{Digest, Sha256};
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-#[interface]
-pub trait SIGHASH_GLOBAL_NAMESPACE<'info, T: Accounts<'info>> {
-    fn initialize_margin_account(
-        ctx: Context<T>,
-        nonce: u8,
-    ) -> ProgramResult;
+pub fn sighash(namespace: &str, name: &str) -> [u8; 8] {
+    let preimage = format!("{}:{}", namespace, name);
+
+    let mut hasher = Sha256::new();
+    hasher.update(preimage.as_bytes());
+    let result = hasher.finalize();
+
+    let mut sighash = [0u8; 8];
+    sighash.copy_from_slice(&result[..8]);
+    sighash
 }
 
-// pub fn initialize_margin_account<'a,'b, 'c, 'info, T: anchor_lang::Accounts<'info> + anchor_lang::ToAccountMetas + anchor_lang::ToAccountInfos<'info>>(
-//     ctx: anchor_lang::CpiContext<'a, 'b, 'c, 'info, T>,
-//     nonce: u8,
-// ) -> anchor_lang::solana_program::entrypoint::ProgramResult {
-//     use anchor_syn::codegen::program::common::{sighash, SIGHASH_GLOBAL_NAMESPACE};
-//     let sighash_arr = sighash(&SIGHASH_GLOBAL_NAMESPACE, &"initialize_margin_account");
-//     let sighash_tts: proc_macro2::TokenStream =
-//         format!("{:?}", sighash_arr).parse().unwrap();
-//     use anchor_lang::prelude::borsh;
-//     #[derive(anchor_lang::AnchorSerialize, anchor_lang::AnchorDeserialize)]
-//     struct Args {
-//         nonce: u8
-//     }
-
-//     let ix = {
-//         let ix = Args {
-//             nonce
-//         };
-//         let mut ix_data = anchor_lang::AnchorSerialize::try_to_vec(&ix)
-//             .map_err(|_| anchor_lang::__private::ErrorCode::InstructionDidNotSerialize)?;
-//         let mut data = sighash_tts.to_string().as_bytes().to_vec();
-//         data.append(&mut ix_data);
-//         let accounts = ctx.to_account_metas(None);
-//         anchor_lang::solana_program::instruction::Instruction {
-//             program_id: *ctx.program.key,
-//             accounts,
-//             data,
-//         }
-//     };
-//     let mut acc_infos = ctx.to_account_infos();
-//     acc_infos.push(ctx.program.clone());
-//     anchor_lang::solana_program::program::invoke_signed(
-//         &ix,
-//         &acc_infos,
-//         ctx.signer_seeds,
-//     )
+// #[interface]
+// pub trait SIGHASH_GLOBAL_NAMESPACE<'info, T: Accounts<'info>> {
+//     fn initialize_margin_account(
+//         ctx: Context<T>,
+//         nonce: u8,
+//     ) -> ProgramResult;
 // }
+
+pub fn initialize_margin_account_cpi<'a,'b, 'c, 'info, T: anchor_lang::Accounts<'info> + anchor_lang::ToAccountMetas + anchor_lang::ToAccountInfos<'info>>(
+    ctx: anchor_lang::CpiContext<'a, 'b, 'c, 'info, T>,
+    nonce: u8,
+) -> anchor_lang::solana_program::entrypoint::ProgramResult {
+    let SIGHASH_GLOBAL_NAMESPACE = "global";
+    let sighash_arr = sighash(&SIGHASH_GLOBAL_NAMESPACE, &"initialize_margin_account");
+    #[derive(anchor_lang::AnchorSerialize, anchor_lang::AnchorDeserialize)]
+    struct Args {
+        nonce: u8
+    }
+
+    let ix = {
+        let ix = Args {
+            nonce
+        };
+        let mut ix_data = anchor_lang::AnchorSerialize::try_to_vec(&ix)
+            .map_err(|_| anchor_lang::__private::ErrorCode::InstructionDidNotSerialize)?;
+        let mut data = sighash_arr.to_vec();
+        data.append(&mut ix_data);
+        let accounts = ctx.to_account_metas(None);
+        anchor_lang::solana_program::instruction::Instruction {
+            program_id: *ctx.program.key,
+            accounts,
+            data,
+        }
+    };
+    let mut acc_infos = ctx.to_account_infos();
+    acc_infos.push(ctx.program.clone());
+    anchor_lang::solana_program::program::invoke_signed(
+        &ix,
+        &acc_infos,
+        ctx.signer_seeds,
+    )
+}
 
 #[program]
 pub mod zeta_cpi {
     use super::*;
 
-    pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> ProgramResult {
+    // pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> ProgramResult {
+    //     let cpi_program = ctx.accounts.zeta_program.clone();
+    //     let cpi_accounts = InitializeMarginAccount {
+    //         zeta_group: ctx.accounts.zeta_group.to_account_info(),
+    //         margin_account: ctx.accounts.margin_account.to_account_info(),
+    //         authority: ctx.accounts.authority.clone(),
+    //         system_program: ctx.accounts.system_program.clone(),
+    //     };
+    //     // TODO: seeds = [MARGIN_SEED.as_bytes().as_ref(), zeta_group.key().as_ref(), authority.key.as_ref()]
+    //     let (_pda, nonce)  = Pubkey::find_program_address(&[MARGIN_SEED.as_bytes()], &cpi_program.key.clone());
+    //     let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+    //     // use lowercase
+    //     sighash_global_namespace::initialize_margin_account(cpi_ctx, nonce)?;
+    //     Ok(())
+    // }
+
+    pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>, nonce: u8) -> ProgramResult {
         let cpi_program = ctx.accounts.zeta_program.clone();
         let cpi_accounts = InitializeMarginAccount {
             zeta_group: ctx.accounts.zeta_group.to_account_info(),
@@ -68,21 +91,23 @@ pub mod zeta_cpi {
             system_program: ctx.accounts.system_program.clone(),
         };
         // TODO: seeds = [MARGIN_SEED.as_bytes().as_ref(), zeta_group.key().as_ref(), authority.key.as_ref()]
-        let (_pda, nonce)  = Pubkey::find_program_address(&[MARGIN_SEED.as_bytes()], &cpi_program.key.clone());
+        // let (_pda, nonce)  = Pubkey::find_program_address(&[MARGIN_SEED.as_bytes(), ctx.accounts.zeta_group.key().as_ref(), ctx.accounts.authority.key.as_ref()], &cpi_program.key.clone());
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        // use lowercase
-        sighash_global_namespace::initialize_margin_account(cpi_ctx, nonce)?;
+        // initialize_margin_account_cpi(cpi_ctx, nonce)?;
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-pub struct Empty {}
+#[instruction(nonce: u8)]
 
-#[derive(Accounts)]
 pub struct InitializeMarginAccount<'info> {
     pub zeta_group: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [MARGIN_SEED.as_bytes().as_ref(), zeta_group.key().as_ref(), authority.key.as_ref()],
+        bump = nonce,
+    )]
     pub margin_account: AccountInfo<'info>,
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -90,10 +115,16 @@ pub struct InitializeMarginAccount<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(nonce: u8)]
+
 pub struct InitializeMarginAccountCaller<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        seeds = [MARGIN_SEED.as_bytes().as_ref(), zeta_group.key().as_ref(), authority.key.as_ref()],
+        bump = nonce,
+    )]
     pub margin_account: AccountInfo<'info>,
     #[account(mut)]
     pub authority: Signer<'info>,
