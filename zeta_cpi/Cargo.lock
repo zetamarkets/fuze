@@ -369,6 +369,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
+name = "cpi-interface"
+version = "0.1.0"
+dependencies = [
+ "anchor-syn",
+ "anyhow",
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1102,6 +1114,7 @@ name = "zeta_cpi"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "cpi-interface",
  "sha2",
  "solana-program",
 ]

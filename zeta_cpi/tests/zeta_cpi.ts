@@ -19,68 +19,44 @@ describe("zeta_cpi", () => {
   let [zetaGroup, _zetaGroupNonce] = [undefined, undefined];
   let [marginAccount, _marginNonce] = [undefined, undefined];
 
-  // it("Create margin account via CPI", async () => {
-  //   [zetaGroup, _zetaGroupNonce] = await utils.getZetaGroup(
-  //     zetaProgram,
-  //     underlyingMint
-  //   );
-  //   [marginAccount, _marginNonce] = await utils.getMarginAccount(
-  //     zetaProgram,
-  //     zetaGroup,
-  //     userKey
-  //   );
+  it("Create margin account via CPI", async () => {
+    [zetaGroup, _zetaGroupNonce] = await utils.getZetaGroup(
+      zetaProgram,
+      underlyingMint
+    );
+    [marginAccount, _marginNonce] = await utils.getMarginAccount(
+      zetaProgram,
+      zetaGroup,
+      userKey
+    );
 
-  //   console.log(`User: ${userKey}`);
-  //   console.log(`Zeta group account: ${zetaGroup}`);
-  //   console.log(`Margin account: ${marginAccount}`);
+    console.log(`User: ${userKey}`);
+    console.log(`Zeta group account: ${zetaGroup}`);
+    console.log(`Margin account: ${marginAccount}`);
 
-  //// TODO: remove for debugging
-  // await Exchange.load(
-  //   zetaProgram,
-  //   Network.DEVNET,
-  //   provider.connection,
-  //   utils.defaultCommitment(),
-  //   provider.wallet,
-  //   0
-  // );
-  // const txix = await Exchange.program.instruction.createMarginAccount(
-  //   _marginNonce,
-  //   {
-  //     accounts: {
-  //       marginAccount: marginAccount,
-  //       authority: userKey,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //       zetaProgram: zetaProgram,
-  //       zetaGroup: zetaGroup,
-  //     },
-  //   }
-  // );
-  // console.log(`Create tx: ${txix}`);
-  ////
+    // FYI can only create this once
+    const tx = await program.rpc.createMarginAccount({
+      accounts: {
+        marginAccount: marginAccount,
+        authority: userKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        zetaProgram: zetaProgram,
+        zetaGroup: zetaGroup,
+      },
+    });
+    console.log("Your transaction signature", tx);
+  });
 
-  // FYI can only create this once
-  // const tx = await program.rpc.createMarginAccount({
-  //   accounts: {
-  //     marginAccount: marginAccount,
-  //     authority: userKey,
-  //     systemProgram: anchor.web3.SystemProgram.programId,
-  //     zetaProgram: zetaProgram,
-  //     zetaGroup: zetaGroup,
-  //   },
-  // });
-  // console.log("Your transaction signature", tx);
-  // });
-
-  // it("Init margin account via CPI", async () => {
-  //   const tx = await program.rpc.initializeMarginAccount({
-  //     accounts: {
-  //       zetaProgram: zetaProgram,
-  //       zetaGroup: zetaGroup,
-  //       marginAccount: marginAccount,
-  //       authority: userKey,
-  //       systemProgram: anchor.web3.SystemProgram.programId,
-  //     },
-  //   });
-  //   console.log("Your transaction signature", tx);
-  // });
+  it("Init margin account via CPI", async () => {
+    const tx = await program.rpc.initializeMarginAccount({
+      accounts: {
+        zetaProgram: zetaProgram,
+        zetaGroup: zetaGroup,
+        marginAccount: marginAccount,
+        authority: userKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      },
+    });
+    console.log("Your transaction signature", tx);
+  });
 });
