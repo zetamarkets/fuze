@@ -1,5 +1,7 @@
 
 use anchor_lang::prelude::*;
+use anchor_spl::token::Token;
+
 pub mod constants;
 use crate::constants::*;
 use cpi_interface::global_interface;
@@ -15,6 +17,10 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
     fn initialize_margin_account(
         ctx: Context<T>,
         nonce: u8,
+    ) -> ProgramResult;
+    fn deposit(
+        ctx: Context<T>,
+        amount: u64,
     ) -> ProgramResult;
 }
 
@@ -48,6 +54,21 @@ pub mod zeta_cpi {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         zeta_interface::initialize_margin_account(cpi_ctx, nonce)
     }
+
+    pub fn deposit(ctx: Context<DepositCaller>, amount: u64) -> ProgramResult {
+        let cpi_program = ctx.accounts.zeta_program.clone();
+        let cpi_accounts = Deposit {
+            state: ctx.accounts.state.clone(),
+            zeta_group: ctx.accounts.zeta_group.clone(),
+            margin_account: ctx.accounts.margin_account.clone(),
+            vault: ctx.accounts.vault.clone(),
+            user_token_account: ctx.accounts.user_token_account.clone(),
+            authority: ctx.accounts.authority.clone(),
+            token_program: ctx.accounts.token_program.clone(),
+        };
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        zeta_interface::deposit(cpi_ctx, amount)
+    }
 }
 
 #[derive(Accounts)]
@@ -78,6 +99,21 @@ pub struct InitializeMarginAccount<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+#[instruction(amount: u64)]
+pub struct Deposit<'info> {
+    pub state: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub vault: AccountInfo<'info>,
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+}
+
 // Dummy caller fns
 
 #[derive(Accounts)]
@@ -101,4 +137,20 @@ pub struct InitializeMarginAccountCaller<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(amount: u64)]
+pub struct DepositCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub state: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub vault: AccountInfo<'info>,
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
 }

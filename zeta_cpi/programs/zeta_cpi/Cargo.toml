@@ -16,6 +16,7 @@ default = []
 
 [dependencies]
 anchor-lang = "0.18.2"
+anchor-spl = "0.18.2"
 solana-program = "1.8.5"
 sha2 = "0.9.8"
 cpi-interface = { path = "../../cpi-interface", version = "0.1.0" }

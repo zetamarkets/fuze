@@ -4,6 +4,7 @@ Cross program invocation examples for the Zeta Markets program, useful for on-ch
 ## Examples
 
 ### Todo
+* InitializeMarginAccount
 * CreateMarginAccount
 * Deposit
 * Withdraw
