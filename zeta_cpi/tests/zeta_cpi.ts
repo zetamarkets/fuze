@@ -12,7 +12,17 @@ const USDC_AMOUNT = 10_000;
 
 const SERVER_URL = "server.zeta.markets";
 
-let airdropUsdc = (userPubkey: anchor.web3.PublicKey, amount: number) => {
+const zetaProgram = new anchor.web3.PublicKey(
+  "GoB7HN9PAumGbFBZUWokX7GiNe8Etcsc22JWmarRhPBq"
+);
+const underlyingMint = new anchor.web3.PublicKey(
+  "So11111111111111111111111111111111111111112"
+);
+const pythSolOracle = new anchor.web3.PublicKey(
+  "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
+);
+
+let airdropUsdc = async (userPubkey: anchor.web3.PublicKey, amount: number) => {
   const data = new TextEncoder().encode(
     JSON.stringify({
       key: userPubkey.toString(),
@@ -32,18 +42,25 @@ let airdropUsdc = (userPubkey: anchor.web3.PublicKey, amount: number) => {
 
   return new Promise((resolve, reject) => {
     const req = https.request(options, (res) => {
-      console.log(`statusCode: ${res.statusCode}`);
-
-      res.on("data", (d) => {
-        process.stdout.write(d);
+      let body = "";
+      res.on("data", (chunk) => (body += chunk.toString()));
+      res.on("error", reject);
+      res.on("end", () => {
+        if (res.statusCode >= 200 && res.statusCode <= 299) {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body: body,
+          });
+        } else {
+          reject(
+            "Request failed. status: " + res.statusCode + ", body: " + body
+          );
+        }
       });
     });
-
-    req.on("error", (error) => {
-      console.error(error);
-    });
-
-    req.write(data);
+    req.on("error", reject);
+    req.write(data, "binary");
     req.end();
   });
 };
@@ -64,12 +81,6 @@ describe("zeta_cpi", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.ZetaCpi as Program<ZetaCpi>;
-  const zetaProgram = new anchor.web3.PublicKey(
-    "GoB7HN9PAumGbFBZUWokX7GiNe8Etcsc22JWmarRhPBq"
-  );
-  const underlyingMint = new anchor.web3.PublicKey(
-    "So11111111111111111111111111111111111111112"
-  );
 
   let [zetaGroup, _zetaGroupNonce] = [undefined, undefined];
   let [marginAccount, _marginNonce] = [undefined, undefined];
@@ -77,6 +88,7 @@ describe("zeta_cpi", () => {
   let [vaultAddress, _vaultNonce] = [undefined, undefined];
   let usdcMintAddress = undefined;
   let usdcAccountAddress = undefined;
+  let [greeksAddress, _greeksNone] = [undefined, undefined];
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
     [zetaGroup, _zetaGroupNonce] = await utils.getZetaGroup(
@@ -98,13 +110,21 @@ describe("zeta_cpi", () => {
       usdcMintAddress,
       userKeypair.publicKey
     );
+    [greeksAddress, _greeksNone] = await utils.getGreeks(
+      zetaProgram,
+      zetaGroup
+    );
 
     console.log(`User: ${userKeypair.publicKey}`);
     console.log(`Zeta group account: ${zetaGroup}`);
     console.log(`Margin account: ${marginAccount}`);
 
     // Airdrop SOL
-    await provider.connection.requestAirdrop(userKeypair.publicKey, SOL_AMOUNT);
+    const signature = await provider.connection.requestAirdrop(
+      userKeypair.publicKey,
+      SOL_AMOUNT
+    );
+    await connection.confirmTransaction(signature);
   });
 
   it("Create margin account via CPI", async () => {
@@ -162,6 +182,24 @@ describe("zeta_cpi", () => {
         userTokenAccount: usdcAccountAddress,
         authority: userKeypair.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
+      },
+    });
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Withdraw USDC out of margin account via CPI", async () => {
+    const tx = await program.rpc.withdraw(new anchor.BN(USDC_AMOUNT), {
+      accounts: {
+        zetaProgram: zetaProgram,
+        state: stateAddress,
+        zetaGroup: zetaGroup,
+        marginAccount: marginAccount,
+        vault: vaultAddress,
+        userTokenAccount: usdcAccountAddress,
+        authority: userKeypair.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        greeks: greeksAddress,
+        oracle: pythSolOracle,
       },
     });
     console.log("Your transaction signature", tx);

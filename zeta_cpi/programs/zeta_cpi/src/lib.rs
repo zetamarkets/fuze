@@ -22,6 +22,10 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
         ctx: Context<T>,
         amount: u64,
     ) -> ProgramResult;
+    fn withdraw(
+        ctx: Context<T>,
+        amount: u64,
+    ) -> ProgramResult;
 }
 
 #[program]
@@ -69,6 +73,23 @@ pub mod zeta_cpi {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         zeta_interface::deposit(cpi_ctx, amount)
     }
+
+    pub fn withdraw(ctx: Context<WithdrawCaller>, amount: u64) -> ProgramResult {
+        let cpi_program = ctx.accounts.zeta_program.clone();
+        let cpi_accounts = Withdraw {
+            zeta_group: ctx.accounts.zeta_group.clone(),
+            state: ctx.accounts.state.clone(),
+            vault: ctx.accounts.vault.clone(),
+            margin_account: ctx.accounts.margin_account.clone(),
+            user_token_account: ctx.accounts.user_token_account.clone(),
+            token_program: ctx.accounts.token_program.clone(),
+            authority: ctx.accounts.authority.clone(),
+            greeks: ctx.accounts.greeks.clone(),
+            oracle: ctx.accounts.oracle.clone(),
+        };
+        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+        zeta_interface::withdraw(cpi_ctx, amount)
+    }
 }
 
 #[derive(Accounts)]
@@ -114,6 +135,24 @@ pub struct Deposit<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+#[instruction(amount: u64)]
+pub struct Withdraw<'info> {
+    pub zeta_group: AccountInfo<'info>,
+    pub state: AccountInfo<'info>,
+    #[account(mut)]
+    pub vault: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
+    pub authority: Signer<'info>,
+    #[account(mut)]
+    pub greeks: AccountInfo<'info>,
+    pub oracle: AccountInfo<'info>,
+}
+
 // Dummy caller fns
 
 #[derive(Accounts)]
@@ -153,4 +192,23 @@ pub struct DepositCaller<'info> {
     pub user_token_account: AccountInfo<'info>,
     pub authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+#[instruction(amount: u64)]
+pub struct WithdrawCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
+    pub state: AccountInfo<'info>,
+    #[account(mut)]
+    pub vault: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub user_token_account: AccountInfo<'info>,
+    pub token_program: Program<'info, Token>,
+    pub authority: Signer<'info>,
+    #[account(mut)]
+    pub greeks: AccountInfo<'info>,
+    pub oracle: AccountInfo<'info>,
 }
