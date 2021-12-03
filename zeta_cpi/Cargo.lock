@@ -1189,12 +1189,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d68d9dcec5f9b43a30d38c49f91dfedfaac384cb8f085faca366c26207dd1619"
 
 [[package]]
-name = "zeta_cpi"
+name = "zeta-client"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
  "cpi-interface",
- "sha2",
  "solana-program",
+]
+
+[[package]]
+name = "zeta_cpi"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "anchor-spl",
+ "zeta-client",
 ]
