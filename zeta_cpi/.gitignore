@@ -4,4 +4,4 @@
 target
 **/*.rs.bk
 node_modules
-programs/zeta_cpi/src/client.rs
+programs/zeta_cpi/src/client_old.rs

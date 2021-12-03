@@ -1,5 +1,3 @@
-// Preliminary examination - using these constants and converting to bytes
-// costs trivially more compute units - 6/7 each
 pub const STATE_SEED: &str = "state";
 pub const GREEKS_SEED: &str = "greeks";
 pub const VAULT_SEED: &str = "vault";
@@ -15,6 +13,7 @@ pub const BASE_MINT_SEED: &str = "base-mint";
 pub const QUOTE_MINT_SEED: &str = "quote-mint";
 pub const MARKET_SEED: &str = "market";
 pub const MARKET_INDEXES_SEED: &str = "market-indexes";
+pub const OPEN_ORDERS_SEED: &str = "open-orders";
 
 pub const PLATFORM_DECIMALS: u8 = 6;
 pub const EVENT_CRANK_LIMIT: u16 = 25;
@@ -32,11 +31,3 @@ pub const ACTIVE_EXPIRIES: usize = 2;
 pub const TOTAL_EXPIRIES: usize = 6;
 pub const TOTAL_MARKETS: usize = TOTAL_EXPIRIES * NUM_PRODUCTS_PER_SERIES;
 pub const MARKET_INDEX_LIMIT: usize = 40;
-
-// pub mod solana_token {
-//     anchor_lang::solana_program::declare_id!("So11111111111111111111111111111111111111112");
-// }
-
-// pub mod dex_address {
-//     anchor_lang::solana_program::declare_id!("DEX6XtaRGm4cNU2XE18ykY4RMAY3xdygdkas7CdhMLaF");
-// }
