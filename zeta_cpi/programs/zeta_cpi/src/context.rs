@@ -1,31 +1,39 @@
 use crate::*;
 use anchor_spl::token::Token;
-use crate::zeta_client::context::{CreateMarginAccount, InitializeMarginAccount, Deposit, Withdraw, InitializeOpenOrders, PlaceOrder};
+
+// use zeta_client::context::*;
+use crate::zeta_context::*;
 
 // CPI Program Context
 
 #[derive(Accounts)]
 pub struct CreateMarginAccountCaller<'info> {
-    #[account(mut)]
-    pub margin_account: AccountInfo<'info>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    pub system_program: Program<'info, System>,
     pub zeta_program: AccountInfo<'info>,
-    pub zeta_group: AccountInfo<'info>,
+    pub zeta_cpi_accounts: CreateMarginAccount<'info>,
 }
 
-impl<'info> From<&CreateMarginAccountCaller<'info>> for CreateMarginAccount<'info> {
-    fn from(accounts: &CreateMarginAccountCaller<'info>) -> CreateMarginAccount<'info> {
-        CreateMarginAccount {
-            margin_account: accounts.margin_account.clone(),
-            authority: accounts.authority.clone(),
-            system_program: accounts.system_program.clone(),
-            zeta_program: accounts.zeta_program.clone(),
-            zeta_group: accounts.zeta_group.clone(),
-        }
-    }
-}
+// #[derive(Accounts)]
+// pub struct CreateMarginAccountCaller<'info> {
+//     #[account(mut)]
+//     pub margin_account: AccountInfo<'info>,
+//     #[account(mut)]
+//     pub authority: Signer<'info>,
+//     pub system_program: Program<'info, System>,
+//     pub zeta_program: AccountInfo<'info>,
+//     pub zeta_group: AccountInfo<'info>,
+// }
+
+// impl<'info> From<&mut CreateMarginAccountCaller<'info>> for CreateMarginAccount<'info> {
+//     fn from(accounts: &mut CreateMarginAccountCaller<'info>) -> CreateMarginAccount<'info> {
+//         CreateMarginAccount {
+//             margin_account: accounts.margin_account.clone(),
+//             authority: accounts.authority.clone(),
+//             system_program: accounts.system_program.clone(),
+//             zeta_program: accounts.zeta_program.clone(),
+//             zeta_group: accounts.zeta_group.clone(),
+//         }
+//     }
+// }
 
 // Note to self: don't do seeds validation in the outer call because that will use the calling programid
 #[derive(Accounts)]
@@ -149,41 +157,6 @@ impl<'info> From<&InitializeOpenOrdersCaller<'info>> for InitializeOpenOrders<'i
             rent: accounts.rent.clone(),
         }
     }
-}
-
-#[derive(Accounts, Clone)]
-pub struct MarketAccounts<'info> {
-    #[account(mut)]
-    pub market: AccountInfo<'info>,
-    #[account(mut)]
-    pub request_queue: AccountInfo<'info>,
-    #[account(mut)]
-    pub event_queue: AccountInfo<'info>,
-    #[account(mut)]
-    pub bids: AccountInfo<'info>,
-    #[account(mut)]
-    pub asks: AccountInfo<'info>,
-    // The `spl_token::Account` that funds will be taken from, i.e., transferred
-    // from the user into the market's vault.
-    //
-    // For bids, this is the base currency. For asks, the quote.
-    // This has to be owned by serum_authority PDA as serum checks that the owner
-    // of open orders also owns this token account
-    #[account(mut)]
-    pub order_payer_token_account: AccountInfo<'info>,
-    // Also known as the "base" currency. For a given A/B market,
-    // this is the vault for the A mint.
-    #[account(mut)]
-    pub coin_vault: AccountInfo<'info>,
-    // Also known as the "quote" currency. For a given A/B market,
-    // this is the vault for the B mint.
-    #[account(mut)]
-    pub pc_vault: AccountInfo<'info>,
-    // User wallets, used for settling.
-    #[account(mut)]
-    pub coin_wallet: AccountInfo<'info>,
-    #[account(mut)]
-    pub pc_wallet: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]

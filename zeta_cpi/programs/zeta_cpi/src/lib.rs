@@ -1,9 +1,17 @@
 use anchor_lang::prelude::*;
-use zeta_client;
-use zeta_client::types::*;
+// use zeta_client;
+// use zeta_client::types::*;
 
 pub mod context;
 use crate::context::*;
+pub mod zeta_context;
+
+pub mod constants;
+pub mod types;
+use crate::constants::*;
+use crate::types::*;
+
+pub mod zeta_client;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -12,7 +20,7 @@ pub mod zeta_cpi {
     use super::*;
 
     pub fn create_margin_account<'info>(ctx: Context<CreateMarginAccountCaller<'info>>) -> ProgramResult {
-        zeta_client::create_margin_account(ctx.accounts.zeta_program.clone(), ctx.accounts.into())
+        zeta_client::create_margin_account(ctx.accounts.zeta_program.clone(), ctx.accounts.zeta_cpi_accounts.clone())
     }
 
     // pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> ProgramResult {
