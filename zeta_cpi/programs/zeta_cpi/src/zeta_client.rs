@@ -1,6 +1,10 @@
 use crate::*;
 use cpi_interface::global_interface;
 use crate::zeta_context::*;
+use crate::constants::*;
+
+/// Zeta Program Client
+/// Defines a clean interface and set of helper functions to make CPI calls to the Zeta Program
 
 #[global_interface]
 pub trait ZetaInterface<'info, T: Accounts<'info>> {
@@ -63,12 +67,12 @@ pub fn initialize_open_orders<'info>(zeta_program: AccountInfo<'info>, cpi_accou
 }
 
 pub fn place_order<'info>(
-        zeta_program: AccountInfo<'info>, 
-        cpi_accounts: PlaceOrder<'info>,     
-        price: u64,
-        size: u32,
-        side: Side
-    ) -> ProgramResult {
+    zeta_program: AccountInfo<'info>, 
+    cpi_accounts: PlaceOrder<'info>,     
+    price: u64,
+    size: u32,
+    side: Side
+) -> ProgramResult {
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
     zeta_interface::place_order(cpi_ctx, price, size, side)
 }

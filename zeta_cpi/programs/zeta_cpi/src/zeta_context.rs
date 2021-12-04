@@ -1,7 +1,8 @@
 use crate::*;
 use anchor_spl::token::Token;
 
-// Zeta Context
+/// Zeta Context
+/// Leave this as is, it defines the instruction context for the zeta program
 
 #[derive(Accounts, Clone)]
 pub struct CreateMarginAccount<'info> {
@@ -14,7 +15,7 @@ pub struct CreateMarginAccount<'info> {
     pub zeta_group: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct InitializeMarginAccount<'info> {
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
@@ -24,7 +25,7 @@ pub struct InitializeMarginAccount<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct Deposit<'info> {
     pub state: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
@@ -38,7 +39,7 @@ pub struct Deposit<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct Withdraw<'info> {
     pub zeta_group: AccountInfo<'info>,
     pub state: AccountInfo<'info>,
@@ -55,7 +56,7 @@ pub struct Withdraw<'info> {
     pub oracle: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct InitializeOpenOrders<'info> {
     pub state: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
@@ -112,7 +113,7 @@ pub struct MarketAccounts<'info> {
     pub pc_wallet: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct PlaceOrder<'info> {
     pub state: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
