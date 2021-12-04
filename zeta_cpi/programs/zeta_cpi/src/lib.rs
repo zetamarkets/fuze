@@ -15,6 +15,7 @@ pub mod zeta_cpi {
     use super::*;
 
     pub fn create_margin_account<'info>(ctx: Context<CreateMarginAccountCaller<'info>>) -> ProgramResult {
+        // TODO: perhaps remove second zetaProgram account input
         zeta_client::create_margin_account(ctx.accounts.zeta_program.clone(), ctx.accounts.create_margin_cpi_accounts.clone())
     }
 

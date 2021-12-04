@@ -175,10 +175,13 @@ describe("zeta_cpi", () => {
     const tx = await program.rpc.createMarginAccount({
       accounts: {
         zetaProgram: zetaProgram,
-        zetaGroup: zetaGroupAddress,
-        marginAccount: marginAddress,
-        authority: userKeypair.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        createMarginCpiAccounts: {
+          zetaGroup: zetaGroupAddress,
+          marginAccount: marginAddress,
+          authority: userKeypair.publicKey,
+          zetaProgram: zetaProgram,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        },
       },
     });
     console.log("Your transaction signature", tx);
@@ -189,10 +192,12 @@ describe("zeta_cpi", () => {
     const tx = await program.rpc.initializeMarginAccount({
       accounts: {
         zetaProgram: zetaProgram,
-        zetaGroup: zetaGroupAddress,
-        marginAccount: marginAddress,
-        authority: userKeypair.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        initializeMarginCpiAccounts: {
+          zetaGroup: zetaGroupAddress,
+          marginAccount: marginAddress,
+          authority: userKeypair.publicKey,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        },
       },
     });
     console.log("Your transaction signature", tx);
@@ -224,13 +229,15 @@ describe("zeta_cpi", () => {
       {
         accounts: {
           zetaProgram: zetaProgram,
-          state: stateAddress,
-          zetaGroup: zetaGroupAddress,
-          marginAccount: marginAddress,
-          vault: vaultAddress,
-          userTokenAccount: usdcAccountAddress,
-          authority: userKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
+          depositCpiAccounts: {
+            state: stateAddress,
+            zetaGroup: zetaGroupAddress,
+            marginAccount: marginAddress,
+            vault: vaultAddress,
+            userTokenAccount: usdcAccountAddress,
+            authority: userKeypair.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          },
         },
       }
     );
@@ -244,15 +251,17 @@ describe("zeta_cpi", () => {
       {
         accounts: {
           zetaProgram: zetaProgram,
-          state: stateAddress,
-          zetaGroup: zetaGroupAddress,
-          marginAccount: marginAddress,
-          vault: vaultAddress,
-          userTokenAccount: usdcAccountAddress,
-          authority: userKeypair.publicKey,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          greeks: greeksAddress,
-          oracle: pythSolOracle,
+          withdrawCpiAccounts: {
+            state: stateAddress,
+            zetaGroup: zetaGroupAddress,
+            marginAccount: marginAddress,
+            vault: vaultAddress,
+            userTokenAccount: usdcAccountAddress,
+            authority: userKeypair.publicKey,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            greeks: greeksAddress,
+            oracle: pythSolOracle,
+          },
         },
       }
     );
@@ -263,17 +272,19 @@ describe("zeta_cpi", () => {
     const tx = await program.rpc.initializeOpenOrders({
       accounts: {
         zetaProgram: zetaProgram,
-        state: stateAddress,
-        zetaGroup: zetaGroupAddress,
-        dexProgram: dexProgram,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        openOrders: openOrdersAccount,
-        marginAccount: marginAddress,
-        authority: userKeypair.publicKey,
-        market: market.address,
-        serumAuthority: serumAuthorityAddress,
-        openOrdersMap: openOrdersMapAddress,
-        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        initializeOpenOrdersCpiAccounts: {
+          state: stateAddress,
+          zetaGroup: zetaGroupAddress,
+          dexProgram: dexProgram,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          openOrders: openOrdersAccount,
+          marginAccount: marginAddress,
+          authority: userKeypair.publicKey,
+          market: market.address,
+          serumAuthority: serumAuthorityAddress,
+          openOrdersMap: openOrdersMapAddress,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        },
       },
     });
     console.log("Your transaction signature", tx);
@@ -303,18 +314,20 @@ describe("zeta_cpi", () => {
       {
         accounts: {
           zetaProgram: zetaProgram,
-          state: stateAddress,
-          zetaGroup: zetaGroupAddress,
-          marginAccount: marginAddress,
-          authority: userKeypair.publicKey,
-          dexProgram: dexProgram,
-          tokenProgram: TOKEN_PROGRAM_ID,
-          serumAuthority: serumAuthorityAddress,
-          greeks: greeksAddress,
-          openOrders: openOrdersAccount,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          marketAccounts: marketAccounts,
-          oracle: pythSolOracle,
+          placeOrderCpiAccounts: {
+            state: stateAddress,
+            zetaGroup: zetaGroupAddress,
+            marginAccount: marginAddress,
+            authority: userKeypair.publicKey,
+            dexProgram: dexProgram,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            serumAuthority: serumAuthorityAddress,
+            greeks: greeksAddress,
+            openOrders: openOrdersAccount,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            marketAccounts: marketAccounts,
+            oracle: pythSolOracle,
+          },
         },
       }
     );
