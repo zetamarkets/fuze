@@ -1,7 +1,7 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { ZetaCpi } from "../target/types/zeta_cpi";
-import { Token, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   utils,
   Exchange,
@@ -21,7 +21,7 @@ const USDC_AMOUNT = 10_000;
 const SERVER_URL = "server.zeta.markets";
 
 const zetaProgram = new anchor.web3.PublicKey(
-  "268ZKaPTbRnnse9ohE5MdgWniLrtnJcjvAAwLmZMDbj3"
+  "9VqrmtqpGSnKXYcNkQVvVneGeHujWU6KuVZkNHbyV8oL"
 );
 const underlyingMint = new anchor.web3.PublicKey(
   "So11111111111111111111111111111111111111112"
@@ -103,6 +103,7 @@ describe("zeta_cpi", () => {
   let [serumAuthorityAddress, _serumAuthorityNonce] = [undefined, undefined];
   let [openOrdersAccount, openOrdersNonce] = [undefined, undefined];
   let [openOrdersMapAddress, openOrdersMapNonce] = [undefined, undefined];
+  let [marketNodeAddress, _marketNodeNonce] = [undefined, undefined];
   let market = undefined;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
@@ -116,7 +117,10 @@ describe("zeta_cpi", () => {
       userKeypair.publicKey
     );
     [stateAddress, _stateNonce] = await utils.getState(zetaProgram);
-    [vaultAddress, _vaultNonce] = await utils.getVault(zetaProgram);
+    [vaultAddress, _vaultNonce] = await utils.getVault(
+      zetaProgram,
+      zetaGroupAddress
+    );
     usdcMintAddress = await utils.getTokenMint(
       provider.connection,
       vaultAddress
@@ -147,6 +151,12 @@ describe("zeta_cpi", () => {
       Exchange.zetaGroup.frontExpiryIndex * constants.PRODUCTS_PER_EXPIRY;
     market = Exchange.markets.markets[frontIndex];
 
+    [marketNodeAddress, _marketNodeNonce] = await utils.getMarketNode(
+      zetaProgram,
+      zetaGroupAddress,
+      frontIndex
+    );
+
     [openOrdersAccount, openOrdersNonce] = await utils.getOpenOrders(
       zetaProgram,
       market.address,
@@ -170,23 +180,6 @@ describe("zeta_cpi", () => {
     await connection.confirmTransaction(signature);
   });
 
-  it("Create margin account via CPI", async () => {
-    // FYI can only create this once
-    const tx = await program.rpc.createMarginAccount({
-      accounts: {
-        zetaProgram: zetaProgram,
-        createMarginCpiAccounts: {
-          zetaGroup: zetaGroupAddress,
-          marginAccount: marginAddress,
-          authority: userKeypair.publicKey,
-          zetaProgram: zetaProgram,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        },
-      },
-    });
-    console.log("Your transaction signature", tx);
-  });
-
   it("Init margin account via CPI", async () => {
     // FYI can only init this once
     const tx = await program.rpc.initializeMarginAccount({
@@ -196,6 +189,7 @@ describe("zeta_cpi", () => {
           zetaGroup: zetaGroupAddress,
           marginAccount: marginAddress,
           authority: userKeypair.publicKey,
+          zetaProgram: zetaProgram,
           systemProgram: anchor.web3.SystemProgram.programId,
         },
       },
@@ -225,7 +219,7 @@ describe("zeta_cpi", () => {
 
     // Deposit all newly minted USDC into the margin account
     const tx = await program.rpc.deposit(
-      new anchor.BN(utils.getNativeAmount(USDC_AMOUNT)),
+      new anchor.BN(utils.convertDecimalToNativeInteger(USDC_AMOUNT)),
       {
         accounts: {
           zetaProgram: zetaProgram,
@@ -247,7 +241,7 @@ describe("zeta_cpi", () => {
   it("Withdraw USDC out of margin account via CPI", async () => {
     // Withdraw 10% of deposited funds
     const tx = await program.rpc.withdraw(
-      new anchor.BN(utils.getNativeAmount(0.1 * USDC_AMOUNT)),
+      new anchor.BN(utils.convertDecimalToNativeInteger(0.1 * USDC_AMOUNT)),
       {
         accounts: {
           zetaProgram: zetaProgram,
@@ -308,7 +302,7 @@ describe("zeta_cpi", () => {
     };
 
     const tx = await program.rpc.placeOrder(
-      new anchor.BN(utils.getNativeAmount(1)),
+      new anchor.BN(utils.convertDecimalToNativeInteger(1)),
       1,
       types.toProgramSide(side),
       {
@@ -327,10 +321,29 @@ describe("zeta_cpi", () => {
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
             oracle: pythSolOracle,
+            marketNode: marketNodeAddress,
           },
         },
       }
     );
     console.log("Your transaction signature", tx);
+  });
+
+  it("Read Zeta data", async () => {
+    const tx = await program.rpc.readProgramData({
+      accounts: {
+        state: stateAddress,
+        zetaGroup: zetaGroupAddress,
+        marginAccount: marginAddress,
+        greeks: greeksAddress,
+        oracle: pythSolOracle,
+      },
+    });
+    console.log("Your transaction signature", tx);
+  });
+
+  // Closes the account subscriptions so the test won't hang.
+  it("BOILERPLATE: Close websockets.", async () => {
+    await Exchange.close();
   });
 });

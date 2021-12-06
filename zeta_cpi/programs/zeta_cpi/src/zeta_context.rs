@@ -5,29 +5,18 @@ use anchor_spl::token::Token;
 /// Leave this as is, it defines the instruction context for the zeta program
 
 #[derive(Accounts, Clone)]
-pub struct CreateMarginAccount<'info> {
-    #[account(mut)]
-    pub margin_account: AccountInfo<'info>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    pub system_program: Program<'info, System>,
-    pub zeta_program: AccountInfo<'info>,
-    pub zeta_group: AccountInfo<'info>,
-}
-
-#[derive(Accounts, Clone)]
 pub struct InitializeMarginAccount<'info> {
-    pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
     pub margin_account: AccountInfo<'info>,
     #[account(mut)]
     pub authority: Signer<'info>,
+    pub zeta_program: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
+    pub zeta_group: AccountInfo<'info>,
 }
 
 #[derive(Accounts, Clone)]
 pub struct Deposit<'info> {
-    pub state: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
     pub margin_account: AccountInfo<'info>,
@@ -41,8 +30,8 @@ pub struct Deposit<'info> {
 
 #[derive(Accounts, Clone)]
 pub struct Withdraw<'info> {
-    pub zeta_group: AccountInfo<'info>,
     pub state: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
     pub vault: AccountInfo<'info>,
     #[account(mut)]
@@ -130,4 +119,6 @@ pub struct PlaceOrder<'info> {
     pub rent: Sysvar<'info, Rent>,
     pub market_accounts: MarketAccounts<'info>,
     pub oracle: AccountInfo<'info>,
+    #[account(mut)]
+    pub market_node: AccountInfo<'info>,
 }

@@ -15,3 +15,5 @@ Cross program invocation examples for the Zeta Markets program, useful for on-ch
 * Deserialisating our accounts on chain on the cpi program (reading state)
 * Read state: margin acct, greeks acct, zeta group
 * Calculating margin requirements on chain (make some helper functions)
+
+* Proper tests

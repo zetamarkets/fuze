@@ -19,3 +19,5 @@ anchor-lang = "0.18.2"
 anchor-spl = "0.18.2"
 cpi-interface = { path = "../../../cpi-interface", version = "0.1.0" }
 # zeta-client = { path = "../../../zeta-client", version = "0.1.0", features = ["cpi"] }
+bytemuck = "1.4.0"
+rust_decimal = { git = "https://github.com/zetamarkets/rust-decimal.git", features = ["maths"] }

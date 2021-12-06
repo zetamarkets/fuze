@@ -843,6 +843,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
+name = "rust_decimal"
+version = "1.17.0"
+source = "git+https://github.com/zetamarkets/rust-decimal.git#d14a5efe8440ece16c54ba990bb16a966b10d79b"
+dependencies = [
+ "anchor-lang",
+ "arrayvec",
+ "bytemuck",
+ "num-traits",
+ "serde",
+]
+
+[[package]]
 name = "rustc_version"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1194,5 +1206,7 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "anchor-spl",
+ "bytemuck",
  "cpi-interface",
+ "rust_decimal",
 ]

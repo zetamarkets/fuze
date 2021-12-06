@@ -8,10 +8,6 @@ use crate::constants::*;
 
 #[global_interface]
 pub trait ZetaInterface<'info, T: Accounts<'info>> {
-    fn create_margin_account(
-        ctx: Context<T>,
-        nonce: u8,
-    ) -> ProgramResult;
     fn initialize_margin_account(
         ctx: Context<T>,
         nonce: u8,
@@ -35,12 +31,6 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
         size: u32,
         side: Side,
     ) -> ProgramResult;
-}
-
-pub fn create_margin_account<'info>(zeta_program: AccountInfo<'info>, cpi_accounts: CreateMarginAccount<'info>) -> ProgramResult {
-    let (_pda, nonce)  = Pubkey::find_program_address(&[MARGIN_SEED.as_bytes(), cpi_accounts.zeta_group.key.as_ref(), cpi_accounts.authority.key.as_ref()], &zeta_program.key.clone());
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
-    zeta_interface::create_margin_account(cpi_ctx, nonce)
 }
 
 pub fn initialize_margin_account<'info>(zeta_program: AccountInfo<'info>, cpi_accounts: InitializeMarginAccount<'info>) -> ProgramResult {

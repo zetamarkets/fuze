@@ -5,12 +5,6 @@ use crate::zeta_context::*;
 // Edit this as you wish for your own program instructions
 
 #[derive(Accounts)]
-pub struct CreateMarginAccountCaller<'info> {
-    pub zeta_program: AccountInfo<'info>,
-    pub create_margin_cpi_accounts: CreateMarginAccount<'info>,
-}
-
-#[derive(Accounts)]
 pub struct InitializeMarginAccountCaller<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub initialize_margin_cpi_accounts: InitializeMarginAccount<'info>,
@@ -38,4 +32,13 @@ pub struct InitializeOpenOrdersCaller<'info> {
 pub struct PlaceOrderCaller<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub place_order_cpi_accounts: PlaceOrder<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ReadProgramData<'info> {
+    pub state: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
+    pub margin_account: AccountInfo<'info>,
+    pub greeks: AccountInfo<'info>,
+    pub oracle: AccountInfo<'info>,
 }
