@@ -1,7 +1,7 @@
 use crate::*;
 use cpi_interface::global_interface;
 use crate::zeta_context::*;
-use crate::constants::*;
+use crate::zeta_constants::*;
 
 /// Zeta Program Client
 /// Defines a clean interface and set of helper functions to make CPI calls to the Zeta Program
@@ -30,6 +30,11 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
         price: u64,
         size: u32,
         side: Side,
+    ) -> ProgramResult;
+    fn cancel_order(
+        ctx: Context<T>, 
+        side: Side, 
+        order_id: u128
     ) -> ProgramResult;
 }
 
@@ -65,4 +70,14 @@ pub fn place_order<'info>(
 ) -> ProgramResult {
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
     zeta_interface::place_order(cpi_ctx, price, size, side)
+}
+
+pub fn cancel_order<'info>(
+    zeta_program: AccountInfo<'info>, 
+    cpi_accounts: PlaceOrder<'info>,     
+    side: Side, 
+    order_id: u128
+) -> ProgramResult {
+    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    zeta_interface::cancel_order(cpi_ctx, side, order_id)
 }

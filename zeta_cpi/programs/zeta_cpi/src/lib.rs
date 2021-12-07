@@ -4,14 +4,14 @@ use rust_decimal::prelude::*;
 pub mod context;
 pub mod zeta_client;
 pub mod zeta_context;
-pub mod constants;
-pub mod utils;
+pub mod zeta_constants;
+pub mod zeta_utils;
 pub mod zeta_account;
-pub mod pc;
+pub mod pyth_client;
 use crate::context::*;
-use crate::utils::*;
+use crate::zeta_utils::*;
 use crate::zeta_account::*;
-use crate::constants::*;
+use crate::zeta_constants::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -44,13 +44,17 @@ pub mod zeta_cpi {
         zeta_client::place_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), price, size, side)
     }
 
+    pub fn cancel_order(ctx: Context<PlaceOrderCaller>, side: Side, order_id: u128) -> ProgramResult {
+        zeta_client::cancel_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), side, order_id)
+    }
+
     pub fn read_program_data(ctx: Context<ReadProgramData>) -> ProgramResult {
         let state = deserialize_account_info::<State>(&ctx.accounts.state).unwrap();
         msg!("state.num_underlyings: {:?}", state.num_underlyings);
 
         let zeta_group = deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
         let front_expiry_index = zeta_group.front_expiry_index as usize;
-        msg!("Market strike: {:?}", zeta_group.products[front_expiry_index].strike.get_strike().unwrap());
+        msg!("Market strike: {:?}", zeta_group.get_strike(front_expiry_index));
         msg!("Market expiry: {:?}", zeta_group.expiry_series[front_expiry_index].expiry_ts);
         msg!("Is market expired?: {:?}", zeta_group.expiry_series[front_expiry_index].status().unwrap() == ExpirySeriesStatus::Expired);
         

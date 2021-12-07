@@ -175,7 +175,7 @@ pub fn get_maintenance_margin_per_lot(
 ///
 /// * `oracle` - Oracle account.
 pub fn get_native_oracle_price(oracle: &AccountInfo) -> u64 {
-  let oracle_price = pc::Price::load(&oracle).unwrap();
+  let oracle_price = pyth_client::Price::load(&oracle).unwrap();
   (oracle_price.agg.price as u128)
       .checked_mul(10u128.pow(PLATFORM_PRECISION.into()))
       .unwrap()

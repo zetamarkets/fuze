@@ -1,5 +1,4 @@
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
 import { ZetaCpi } from "../target/types/zeta_cpi";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
@@ -9,6 +8,7 @@ import {
   types,
   Network,
   constants,
+  Client,
 } from "@zetamarkets/sdk";
 import * as https from "https";
 import { TextEncoder } from "util";
@@ -91,7 +91,7 @@ describe("zeta_cpi", () => {
   );
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.ZetaCpi as Program<ZetaCpi>;
+  const program = anchor.workspace.ZetaCpi as anchor.Program<ZetaCpi>;
 
   let [zetaGroupAddress, _zetaGroupNonce] = [undefined, undefined];
   let [marginAddress, _marginNonce] = [undefined, undefined];
@@ -105,6 +105,8 @@ describe("zeta_cpi", () => {
   let [openOrdersMapAddress, openOrdersMapNonce] = [undefined, undefined];
   let [marketNodeAddress, _marketNodeNonce] = [undefined, undefined];
   let market = undefined;
+  let client = undefined;
+  let side = undefined;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
     [zetaGroupAddress, _zetaGroupNonce] = await utils.getZetaGroup(
@@ -146,15 +148,25 @@ describe("zeta_cpi", () => {
       0
     );
 
-    // Pick 0 index market arbitrarily
-    const frontIndex =
+    client = await Client.load(
+      provider.connection,
+      provider.wallet,
+      utils.defaultCommitment(),
+      undefined,
+      false
+    );
+
+    // Pick front index market arbitrarily
+    const marketIndex =
       Exchange.zetaGroup.frontExpiryIndex * constants.PRODUCTS_PER_EXPIRY;
-    market = Exchange.markets.markets[frontIndex];
+    market = Exchange.markets.markets[marketIndex];
+
+    side = types.Side.BID;
 
     [marketNodeAddress, _marketNodeNonce] = await utils.getMarketNode(
       zetaProgram,
       zetaGroupAddress,
-      frontIndex
+      marketIndex
     );
 
     [openOrdersAccount, openOrdersNonce] = await utils.getOpenOrders(
@@ -285,10 +297,8 @@ describe("zeta_cpi", () => {
   });
 
   it("Place order via CPI", async () => {
-    const side = types.Side.BID;
-
     const marketAccounts = {
-      market: market.serumMarket.decoded.ownAddress,
+      market: market.address,
       requestQueue: market.serumMarket.decoded.requestQueue,
       eventQueue: market.serumMarket.decoded.eventQueue,
       bids: market.serumMarket.decoded.bids,
@@ -329,6 +339,44 @@ describe("zeta_cpi", () => {
     console.log("Your transaction signature", tx);
   });
 
+  it("Cancel order via CPI", async () => {
+    await client.updateState();
+    const orders = client.orders.filter(
+      (x) => x.marketIndex === market.marketIndex
+    );
+    if (orders.length === 0) {
+      throw new Error("No relevant client order to cancel");
+    }
+
+    const cancelAccounts = {
+      zeta_group: zetaGroupAddress,
+      state: stateAddress,
+      margin_account: marginAddress,
+      dex_program: dexProgram,
+      serum_authority: serumAuthorityAddress,
+      open_orders: openOrdersAccount,
+      market: market.address,
+      bids: market.serumMarket.decoded.bids,
+      asks: market.serumMarket.decoded.asks,
+      event_queue: market.serumMarket.decoded.eventQueue,
+    };
+
+    const tx = await program.rpc.placeOrder(
+      types.toProgramSide(side),
+      orders[0].orderId,
+      {
+        accounts: {
+          zetaProgram: zetaProgram,
+          placeOrderCpiAccounts: {
+            authority: userKeypair.publicKey,
+            cancelAccounts: cancelAccounts,
+          },
+        },
+      }
+    );
+    console.log("Your transaction signature", tx);
+  });
+
   it("Read Zeta data", async () => {
     const tx = await program.rpc.readProgramData({
       accounts: {
@@ -345,5 +393,6 @@ describe("zeta_cpi", () => {
   // Closes the account subscriptions so the test won't hang.
   it("BOILERPLATE: Close websockets.", async () => {
     await Exchange.close();
+    await client.close();
   });
 });

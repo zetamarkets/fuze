@@ -122,3 +122,30 @@ pub struct PlaceOrder<'info> {
     #[account(mut)]
     pub market_node: AccountInfo<'info>,
 }
+
+// Shared accounts required for cancel order
+#[derive(Accounts)]
+pub struct CancelAccounts<'info> {
+    pub zeta_group: AccountInfo<'info>,
+    pub state: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    pub dex_program: AccountInfo<'info>,
+    pub serum_authority: AccountInfo<'info>,
+    #[account(mut)]
+    pub open_orders: AccountInfo<'info>,
+    #[account(mut)]
+    pub market: AccountInfo<'info>,
+    #[account(mut)]
+    pub bids: AccountInfo<'info>,
+    #[account(mut)]
+    pub asks: AccountInfo<'info>,
+    #[account(mut)]
+    pub event_queue: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CancelOrder<'info> {
+    pub authority: Signer<'info>,
+    pub cancel_accounts: CancelAccounts<'info>,
+}

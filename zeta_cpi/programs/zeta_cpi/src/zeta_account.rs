@@ -117,19 +117,28 @@ pub struct ZetaGroup {
 }
 
 impl ZetaGroup {
-    pub fn get_products_slice(&self, series_index: usize) -> &[Product] {
-        let head = series_index * NUM_PRODUCTS_PER_SERIES;
+    pub fn get_strike(&self, index: usize) -> Result<u64> {
+        self.products[index].strike.get_strike()
+    }
+
+    pub fn get_products_slice_mut(&mut self, expiry_index: usize) -> &mut [Product] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
+        &mut self.products[head..head + NUM_PRODUCTS_PER_SERIES]
+    }
+
+    pub fn get_products_slice(&self, expiry_index: usize) -> &[Product] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
         &self.products[head..head + NUM_PRODUCTS_PER_SERIES]
     }
 
-    pub fn get_product_and_series_index_by_key(&self, market: &Pubkey) -> Result<(usize, usize)> {
+    pub fn get_product_and_expiry_index_by_key(&self, market: &Pubkey) -> Result<(usize, usize)> {
         let index = self
             .products
             .binary_search_by_key(&market, |product| &product.market);
 
         match index {
             Err(_) => wrap_error!(Err(ErrorCode::InvalidProductMarketKey.into())),
-            Ok(i) => Ok((i, self.get_expiry_series_index_by_product_index(i))),
+            Ok(i) => Ok((i, self.get_expiry_index_by_product_index(i))),
         }
     }
 
@@ -156,31 +165,36 @@ impl ZetaGroup {
     }
 
     pub fn get_expiry_series_by_product_index(&self, index: usize) -> &ExpirySeries {
-        &self.expiry_series[self.get_expiry_series_index_by_product_index(index)]
+        &self.expiry_series[self.get_expiry_index_by_product_index(index)]
     }
 
-    pub fn get_expiry_series_index_by_product_index(&self, index: usize) -> usize {
+    pub fn get_expiry_index_by_product_index(&self, index: usize) -> usize {
         assert!(index < self.products.len());
-        let series_index = index.checked_div(NUM_PRODUCTS_PER_SERIES).unwrap();
-        assert!(series_index < self.expiry_series.len());
-        series_index
+        let expiry_index = index.checked_div(NUM_PRODUCTS_PER_SERIES).unwrap();
+        assert!(expiry_index < self.expiry_series.len());
+        expiry_index
     }
 
-    pub fn validate_series_tradeable(&self, series_index: usize) -> Result<()> {
-        let series_status = self.expiry_series[series_index].status()?;
+    /// This function should validate an expiry index is:
+    /// 1. Live
+    /// 2. Strike is set
+    /// 3. Pricing update was within the required intervals.
+    pub fn validate_series_tradeable(
+        &self,
+        expiry_index: usize,
+        current_timestamp: u64,
+    ) -> Result<()> {
+        let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {
             msg!("Series status = {:?}", series_status);
             return wrap_error!(Err(ErrorCode::MarketNotLive.into()));
         }
 
-        let products = self.get_products_slice(series_index);
-        for product in products.iter() {
-            if product.dirty {
-                return wrap_error!(Err(ErrorCode::ProductDirty.into()));
-            }
-            if !product.strike.is_set() {
-                return wrap_error!(Err(ErrorCode::ProductStrikeUninitialized.into()));
-            }
+        let products = self.get_products_slice(expiry_index);
+        // We don't need to check product.dirty as status implies that.
+        // We only need to check a singular product for strike set in the series.
+        if !products[0].strike.is_set() {
+            return wrap_error!(Err(ErrorCode::ProductStrikeUninitialized.into()));
         }
         Ok(())
     }
@@ -193,6 +207,19 @@ impl ZetaGroup {
         match self.front_expiry_index {
             0 => (self.expiry_series.len() - 1),
             _ => (self.front_expiry_index - 1).into(),
+        }
+    }
+
+    // Return the expiry timestamp that is furthest in the future.
+    pub fn get_back_expiry_ts(&self) -> u64 {
+        self.expiry_series[self.get_back_expiry_index()].expiry_ts
+    }
+
+    // Does a wrapped -1 to the passed in expiry_index
+    pub fn get_previous_expiry_index(&self, expiry_index: usize) -> usize {
+        match expiry_index {
+            0 => (self.expiry_series.len() - 1),
+            _ => (expiry_index - 1).into(),
         }
     }
 }
@@ -223,12 +250,6 @@ impl ExpirySeries {
         };
         let clock = Clock::get()?;
         let current_ts = clock.unix_timestamp as u64;
-        // msg!(
-        //     "Current ts = {} active_ts={} expiry_ts={}",
-        //     current_ts,
-        //     self.active_ts,
-        //     self.expiry_ts
-        // );
         if self.dirty {
             Ok(ExpirySeriesStatus::ExpiredDirty)
         } else if current_ts < self.active_ts {
