@@ -13,6 +13,7 @@ import {
 import * as https from "https";
 import { TextEncoder } from "util";
 import * as assert from "assert";
+import { sleep } from "@zetamarkets/sdk/dist/utils";
 
 // Airdrop amounts
 const SOL_AMOUNT = 1; // 1 SOL
@@ -151,11 +152,13 @@ describe("zeta_cpi", () => {
     // Load the client
     client = await Client.load(
       provider.connection,
-      provider.wallet,
+      new Wallet(userKeypair),
       utils.defaultCommitment(),
       undefined,
       false
     );
+
+    console.log(client.marginAccountAddress.toString());
 
     // Arbitrarily choosing the nearest expiry, lowest strike call
     const expiryIndex = Exchange.zetaGroup.frontExpiryIndex;
@@ -343,9 +346,7 @@ describe("zeta_cpi", () => {
 
   it("Cancel order via CPI", async () => {
     await client.updateState();
-    const orders = client.orders.filter(
-      (x) => x.marketIndex === market.marketIndex
-    );
+    let orders = client.orders;
     if (orders.length === 0) {
       throw new Error("No relevant client order to cancel");
     }

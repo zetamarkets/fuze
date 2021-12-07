@@ -2,13 +2,18 @@ use anchor_lang::prelude::*;
 use rust_decimal::prelude::*;
 
 pub mod context;
+pub mod zeta_client;
+pub mod zeta_context;
+pub mod zeta_constants;
+pub mod zeta_utils;
+pub mod zeta_account;
+pub mod pyth_client;
 use crate::context::*;
-use zeta_cpi::zeta_client;
-use zeta_cpi::zeta_utils::*;
-use zeta_cpi::zeta_account::*;
-use zeta_cpi::zeta_constants::*;
+use crate::zeta_utils::*;
+use crate::zeta_account::*;
+use crate::zeta_constants::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("EbtdpLWUP4vaaZZooQsDPYcrFG8oB7HYyRu3YnJwnqDL");
 
 #[program]
 pub mod zeta_demo_vault {

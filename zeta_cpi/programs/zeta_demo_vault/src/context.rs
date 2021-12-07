@@ -1,5 +1,5 @@
 use crate::*;
-use zeta_cpi::zeta_context::*;
+use crate::zeta_context::*;
 
 // CPI Program Context
 // Edit this as you wish for your own program instructions
