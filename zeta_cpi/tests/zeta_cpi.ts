@@ -1,3 +1,4 @@
+require("dotenv").config({ path: __dirname + `/../.env` });
 import * as anchor from "@project-serum/anchor";
 import { ZetaCpi } from "../target/types/zeta_cpi";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -16,21 +17,19 @@ import * as assert from "assert";
 
 // Airdrop amounts
 const SOL_AMOUNT = 1; // 1 SOL
-const USDC_AMOUNT = 10_000;
+const USDC_AMOUNT = 10_000; // 10k USDC
 
 const SERVER_URL = "server.zeta.markets";
 
-const zetaProgram = new anchor.web3.PublicKey(
-  "9VqrmtqpGSnKXYcNkQVvVneGeHujWU6KuVZkNHbyV8oL"
-);
+const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 const underlyingMint = new anchor.web3.PublicKey(
-  "So11111111111111111111111111111111111111112"
+  process.env.underlying_mint || "So11111111111111111111111111111111111111112"
 );
-const pythSolOracle = new anchor.web3.PublicKey(
-  "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
+const pythOracle = new anchor.web3.PublicKey(
+  process.env.pyth_oracle || "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
 );
 const dexProgram = new anchor.web3.PublicKey(
-  "DEX6XtaRGm4cNU2XE18ykY4RMAY3xdygdkas7CdhMLaF"
+  process.env.dex_program || "DEX6XtaRGm4cNU2XE18ykY4RMAY3xdygdkas7CdhMLaF"
 );
 
 let airdropUsdc = async (userPubkey: anchor.web3.PublicKey, amount: number) => {
@@ -266,7 +265,7 @@ describe("zeta_cpi", () => {
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
             greeks: greeksAddress,
-            oracle: pythSolOracle,
+            oracle: pythOracle,
           },
         },
       }
@@ -330,7 +329,7 @@ describe("zeta_cpi", () => {
             openOrders: openOrdersAccount,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
-            oracle: pythSolOracle,
+            oracle: pythOracle,
             marketNode: marketNodeAddress,
           },
         },
@@ -384,7 +383,7 @@ describe("zeta_cpi", () => {
         zetaGroup: zetaGroupAddress,
         marginAccount: marginAddress,
         greeks: greeksAddress,
-        oracle: pythSolOracle,
+        oracle: pythOracle,
       },
     });
     console.log("Your transaction signature", tx);
