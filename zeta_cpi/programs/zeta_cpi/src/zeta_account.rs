@@ -102,7 +102,6 @@ pub struct ZetaGroup {
     pub underlying_mint: Pubkey,
     pub oracle: Pubkey,
     pub greeks: Pubkey,
-    // TODO Margin parameters
     pub pricing_parameters: PricingParameters,
     pub padding: [u8; 122], // 256 - 98 - 36
 

@@ -16,7 +16,7 @@ use crate::zeta_constants::*;
 declare_id!("EbtdpLWUP4vaaZZooQsDPYcrFG8oB7HYyRu3YnJwnqDL");
 
 #[program]
-pub mod zeta_demo_vault {
+pub mod zeta_cpi {
     use super::*;
 
     pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> ProgramResult {
@@ -44,8 +44,8 @@ pub mod zeta_demo_vault {
         zeta_client::place_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), price, size, side)
     }
 
-    pub fn cancel_order(ctx: Context<PlaceOrderCaller>, side: Side, order_id: u128) -> ProgramResult {
-        zeta_client::cancel_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), side, order_id)
+    pub fn cancel_order(ctx: Context<CancelOrderCaller>, side: Side, order_id: u128) -> ProgramResult {
+        zeta_client::cancel_order(ctx.accounts.zeta_program.clone(), ctx.accounts.cancel_order_cpi_accounts.clone(), side, order_id)
     }
 
     pub fn read_program_data(ctx: Context<ReadProgramData>) -> ProgramResult {

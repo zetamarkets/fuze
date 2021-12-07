@@ -124,7 +124,7 @@ pub struct PlaceOrder<'info> {
 }
 
 // Shared accounts required for cancel order
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct CancelAccounts<'info> {
     pub zeta_group: AccountInfo<'info>,
     pub state: AccountInfo<'info>,
@@ -144,7 +144,7 @@ pub struct CancelAccounts<'info> {
     pub event_queue: AccountInfo<'info>,
 }
 
-#[derive(Accounts)]
+#[derive(Accounts, Clone)]
 pub struct CancelOrder<'info> {
     pub authority: Signer<'info>,
     pub cancel_accounts: CancelAccounts<'info>,

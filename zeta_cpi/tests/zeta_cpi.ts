@@ -364,13 +364,13 @@ describe("zeta_cpi", () => {
       event_queue: market.serumMarket.decoded.eventQueue,
     };
 
-    const tx = await program.rpc.placeOrder(
+    const tx = await program.rpc.cancelOrder(
       types.toProgramSide(side),
       orders[0].orderId,
       {
         accounts: {
           zetaProgram: zetaProgram,
-          placeOrderCpiAccounts: {
+          cancelOrderCpiAccounts: {
             authority: userKeypair.publicKey,
             cancelAccounts: cancelAccounts,
           },

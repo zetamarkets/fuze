@@ -182,7 +182,6 @@ impl ZetaGroup {
     pub fn validate_series_tradeable(
         &self,
         expiry_index: usize,
-        current_timestamp: u64,
     ) -> Result<()> {
         let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {

@@ -44,8 +44,8 @@ pub mod zeta_cpi {
         zeta_client::place_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), price, size, side)
     }
 
-    pub fn cancel_order(ctx: Context<PlaceOrderCaller>, side: Side, order_id: u128) -> ProgramResult {
-        zeta_client::cancel_order(ctx.accounts.zeta_program.clone(), ctx.accounts.place_order_cpi_accounts.clone(), side, order_id)
+    pub fn cancel_order(ctx: Context<CancelOrderCaller>, side: Side, order_id: u128) -> ProgramResult {
+        zeta_client::cancel_order(ctx.accounts.zeta_program.clone(), ctx.accounts.cancel_order_cpi_accounts.clone(), side, order_id)
     }
 
     pub fn read_program_data(ctx: Context<ReadProgramData>) -> ProgramResult {

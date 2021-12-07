@@ -74,7 +74,7 @@ pub fn place_order<'info>(
 
 pub fn cancel_order<'info>(
     zeta_program: AccountInfo<'info>, 
-    cpi_accounts: PlaceOrder<'info>,     
+    cpi_accounts: CancelOrder<'info>,     
     side: Side, 
     order_id: u128
 ) -> ProgramResult {
