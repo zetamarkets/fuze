@@ -1210,3 +1210,12 @@ dependencies = [
  "cpi-interface",
  "rust_decimal",
 ]
+
+[[package]]
+name = "zeta_demo_vault"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "rust_decimal",
+ "zeta_cpi",
+]
