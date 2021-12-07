@@ -8,7 +8,6 @@ import {
   Wallet,
   types,
   Network,
-  constants,
   Client,
 } from "@zetamarkets/sdk";
 import * as https from "https";
@@ -21,6 +20,7 @@ const USDC_AMOUNT = 10_000; // 10k USDC
 
 const SERVER_URL = "server.zeta.markets";
 
+// Constants for addresses
 const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 const underlyingMint = new anchor.web3.PublicKey(
   process.env.underlying_mint || "So11111111111111111111111111111111111111112"
@@ -32,6 +32,7 @@ const dexProgram = new anchor.web3.PublicKey(
   process.env.dex_program || "DEX6XtaRGm4cNU2XE18ykY4RMAY3xdygdkas7CdhMLaF"
 );
 
+// Helper function to make the post request to server to mint devnet dummy USDC collateral
 let airdropUsdc = async (userPubkey: anchor.web3.PublicKey, amount: number) => {
   const data = new TextEncoder().encode(
     JSON.stringify({
@@ -147,6 +148,7 @@ describe("zeta_cpi", () => {
       0
     );
 
+    // Load the client
     client = await Client.load(
       provider.connection,
       provider.wallet,
@@ -155,11 +157,12 @@ describe("zeta_cpi", () => {
       false
     );
 
-    // Pick front index market arbitrarily
-    const marketIndex =
-      Exchange.zetaGroup.frontExpiryIndex * constants.PRODUCTS_PER_EXPIRY;
-    market = Exchange.markets.markets[marketIndex];
+    // Arbitrarily choosing the nearest expiry, lowest strike call
+    const expiryIndex = Exchange.zetaGroup.frontExpiryIndex;
+    const marketIndex = 0;
+    market = Exchange.markets.getMarketsByExpiryIndex(expiryIndex)[marketIndex];
 
+    // Select the trade side for when we test place and cancel order
     side = types.Side.BID;
 
     [marketNodeAddress, _marketNodeNonce] = await utils.getMarketNode(
