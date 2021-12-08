@@ -123,8 +123,8 @@ pub mod zeta_cpi {
             let kind = product.kind;
 
             msg!(&format!(
-                "Market index = {}, Strike = {}, Market = {}, Kind = {:?}",
-                market_index, strike, market, kind
+                "Market index = {}, Strike = {}, Kind = {:?}",
+                market_index, strike, kind
             ));
         }
 

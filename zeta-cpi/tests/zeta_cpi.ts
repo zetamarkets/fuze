@@ -9,11 +9,11 @@ import {
   types,
   Network,
   Client,
+  constants,
 } from "@zetamarkets/sdk";
 import * as https from "https";
 import { TextEncoder } from "util";
 import * as assert from "assert";
-import { sleep } from "@zetamarkets/sdk/dist/utils";
 
 // Airdrop amounts
 const SOL_AMOUNT = 1; // 1 SOL
@@ -23,14 +23,11 @@ const SERVER_URL = "server.zeta.markets";
 
 // Constants for addresses
 const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
-const underlyingMint = new anchor.web3.PublicKey(
-  process.env.underlying_mint || "So11111111111111111111111111111111111111112"
-);
-const pythOracle = new anchor.web3.PublicKey(
-  process.env.pyth_oracle || "J83w4HKfqxwcq3BEMMkPFSppX3gqekLyLJBexebFVkix"
-);
-const dexProgram = new anchor.web3.PublicKey(
-  process.env.dex_program || "DEX6XtaRGm4cNU2XE18ykY4RMAY3xdygdkas7CdhMLaF"
+const underlyingMint = constants.MINTS["SOL"];
+const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
+const dexProgram = constants.DEX_PID;
+console.log(
+  `${underlyingMint.toString()}, ${pythOracle.toString()}, ${dexProgram.toString()}, ${zetaProgram.toString()}`
 );
 
 // Helper function to make the post request to server to mint devnet dummy USDC collateral
@@ -352,16 +349,16 @@ describe("zeta-cpi", () => {
     }
 
     const cancelAccounts = {
-      zeta_group: zetaGroupAddress,
+      zetaGroup: zetaGroupAddress,
       state: stateAddress,
-      margin_account: marginAddress,
-      dex_program: dexProgram,
-      serum_authority: serumAuthorityAddress,
-      open_orders: openOrdersAccount,
+      marginAccount: marginAddress,
+      dexProgram: dexProgram,
+      serumAuthority: serumAuthorityAddress,
+      openOrders: openOrdersAccount,
       market: market.address,
       bids: market.serumMarket.decoded.bids,
       asks: market.serumMarket.decoded.asks,
-      event_queue: market.serumMarket.decoded.eventQueue,
+      eventQueue: market.serumMarket.decoded.eventQueue,
     };
 
     const tx = await program.rpc.cancelOrder(
