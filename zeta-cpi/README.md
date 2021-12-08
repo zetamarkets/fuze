@@ -20,9 +20,20 @@ sh -c "$(curl -sSfL https://release.solana.com/v1.8.5/install)"
 npm install -g mocha
 ```
 
+### Yarn
+```sh
+# Used for javascript package management.
+npm install -g yarn
+```
+
 ### Anchor
 
 ```sh
+# Install using pre-build binary on x86_64 Linux
+# Only x86_64 Linux is supported currently, you must build from source for other OS'.
+npm i -g @project-serum/anchor-cli
+
+# Build from source for other operating systems
 cargo install --git https://github.com/project-serum/anchor --tag v0.18.2 anchor-cli --locked
 
 # If cargo install fails, you may need additional dependencies
