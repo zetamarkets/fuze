@@ -26,9 +26,6 @@ const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 const underlyingMint = constants.MINTS["SOL"];
 const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
 const dexProgram = constants.DEX_PID;
-console.log(
-  `${underlyingMint.toString()}, ${pythOracle.toString()}, ${dexProgram.toString()}, ${zetaProgram.toString()}`
-);
 
 // Helper function to make the post request to server to mint devnet dummy USDC collateral
 let airdropUsdc = async (userPubkey: anchor.web3.PublicKey, amount: number) => {
@@ -154,8 +151,6 @@ describe("zeta-cpi", () => {
       undefined,
       false
     );
-
-    console.log(client.marginAccountAddress.toString());
 
     // Arbitrarily choosing the nearest expiry, lowest strike call
     const expiryIndex = Exchange.zetaGroup.frontExpiryIndex;
