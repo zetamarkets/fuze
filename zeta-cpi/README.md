@@ -29,15 +29,14 @@ npm install -g yarn
 ### Anchor
 
 ```sh
-# Install using pre-build binary on x86_64 Linux
+# Install using pre-build binary on x86_64 Linux.
 # Only x86_64 Linux is supported currently, you must build from source for other OS'.
 npm i -g @project-serum/anchor-cli
 
-# Build from source for other operating systems
+# Build from source for other operating systems.
 cargo install --git https://github.com/project-serum/anchor --tag v0.18.2 anchor-cli --locked
 
-# If cargo install fails, you may need additional dependencies
-
+# If cargo install fails, you may need additional dependencies.
 sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y pkg-config build-essential libudev-dev
 ```
 
