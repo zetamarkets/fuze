@@ -1,6 +1,6 @@
 use crate::*;
-use std::convert::{From, TryFrom};
 use bytemuck::{Pod, Zeroable};
+use std::convert::{From, TryFrom};
 
 #[zero_copy]
 #[derive(Default)]
@@ -78,23 +78,6 @@ impl Greeks {
     }
 }
 
-#[account]
-#[derive(Default)]
-pub struct State {
-    // Admin authority
-    pub admin: Pubkey,
-    pub state_nonce: u8,
-    pub serum_nonce: u8,
-    pub mint_auth_nonce: u8,
-
-    pub num_underlyings: u8,
-    pub expiry_interval_seconds: u32,
-    pub new_expiry_threshold_seconds: u32,
-    pub strike_initialization_threshold_seconds: u32,
-    pub pricing_frequency_seconds: u32,
-    pub insurance_vault_liquidation_percentage: u32,
-}
-
 #[account(zero_copy)]
 pub struct ZetaGroup {
     pub nonce: u8,
@@ -118,11 +101,6 @@ pub struct ZetaGroup {
 impl ZetaGroup {
     pub fn get_strike(&self, index: usize) -> Result<u64> {
         self.products[index].strike.get_strike()
-    }
-
-    pub fn get_products_slice_mut(&mut self, expiry_index: usize) -> &mut [Product] {
-        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
-        &mut self.products[head..head + NUM_PRODUCTS_PER_SERIES]
     }
 
     pub fn get_products_slice(&self, expiry_index: usize) -> &[Product] {
@@ -178,10 +156,7 @@ impl ZetaGroup {
     /// 1. Live
     /// 2. Strike is set
     /// 3. Pricing update was within the required intervals.
-    pub fn validate_series_tradeable(
-        &self,
-        expiry_index: usize,
-    ) -> Result<()> {
+    pub fn validate_series_tradeable(&self, expiry_index: usize) -> Result<()> {
         let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {
             msg!("Series status = {:?}", series_status);
@@ -390,11 +365,6 @@ impl MarginAccount {
                 position.get_initial_margin(greeks.mark_prices[i], &zeta_group.products[i], spot)
             })
             .sum();
-
-        msg!(
-            "Total Initial margin requirement = {}",
-            initial_margin_requirement
-        );
         initial_margin_requirement
     }
 
@@ -458,15 +428,6 @@ impl MarginAccount {
             .unwrap()
             .checked_sub(margin_requirement)
             .unwrap();
-
-        msg!(
-            "MarginAccount: Pnl = {}, margin_requirement = {}, buffer = {}, balance = {}",
-            pnl,
-            margin_requirement,
-            buffer,
-            self.balance,
-        );
-
         buffer > 0
     }
 }
