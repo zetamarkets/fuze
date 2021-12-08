@@ -1,6 +1,34 @@
-# zeta-cpi
+<div align="center">
+  <img height="120px" src="./logo.png" />
 
-Cross program invocation examples for the Zeta Markets program, useful for on-chain integration.
+  <h1 style="margin-top: 0px">Zeta FuZe 🧬</h1>
+
+  <p>
+    <a href="https://discord.gg/dD7YREfBkR"
+      ><img
+        alt="Discord Chat"
+        src="https://img.shields.io/discord/841556000632078378?color=blueviolet"
+    /></a>
+    <a href="https://opensource.org/licenses/Apache-2.0"
+      ><img
+        alt="License"
+        src="https://img.shields.io/github/license/project-serum/anchor?color=blueviolet"
+    /></a>
+  </p>
+</div>
+
+# Zeta FuZe
+
+FuZe is Zeta's cross-program integration ecosystem.
+
+This repository contains the Zeta Cross Program Invocation (CPI) interface as well as a number of helpful examples and reference implementations on how to compose (fuse) with the Zeta DEX.
+
+## Networks
+
+| Key     |                     Value                      |
+| ------- | :--------------------------------------------: |
+| Devnet  |     <span style="color:green">Live</span>      |
+| Mainnet | <span style="color:grey">Coming soon...</span> |
 
 ## Cross Program Invocations
 
@@ -18,7 +46,6 @@ The instructions currently supported are as follows:
 
 The accounts and relevant data that is currently supported (non-exhaustive):
 
-- `State` - general exchange setup parameters
 - `ZetaGroup` - contains information relating to all derivatives market for an underlying
   - Underlying
   - Serum Market
@@ -47,7 +74,7 @@ This should give all the boilerplate needed to execute core program functionalit
 
 _Work in progress_
 
-A naive vault implementation. Aiming to implement put selling vault boilerplate first.
+Reference implementation for a put selling vault that uses the Zeta DEX under the hood.
 
 ## Feature Requests
 

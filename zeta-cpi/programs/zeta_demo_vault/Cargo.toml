@@ -1,0 +1,24 @@
+[package]
+name = "zeta_demo_vault"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "zeta_demo_vault"
+
+[features]
+no-entrypoint = []
+no-idl = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.18.2"
+anchor-spl = "0.18.2"
+bytemuck = "1.4.0"
+rust_decimal = { git = "https://github.com/zetamarkets/rust-decimal.git", features = ["maths"] }
+cpi-interface = { path = "../../../cpi-interface", version = "0.1.0" }
+# zeta_cpi = { path = "../zeta_cpi", features = ["no-entrypoint"] }
+
