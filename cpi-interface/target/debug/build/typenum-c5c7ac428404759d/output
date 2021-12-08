@@ -1,2 +1,0 @@
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/Users/tfrizza/Documents/zeta/fuze/cpi-interface/target/debug/build/typenum-c5c7ac428404759d/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/Users/tfrizza/Documents/zeta/fuze/cpi-interface/target/debug/build/typenum-c5c7ac428404759d/out/op.rs

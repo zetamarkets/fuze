@@ -27,7 +27,7 @@ const underlyingMint = constants.MINTS["SOL"];
 const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
 const dexProgram = constants.DEX_PID;
 console.log(
-  `${underlyingMint.toString()}, ${pythOracle.toString()}, ${dexProgram.toString()}`
+  `${underlyingMint.toString()}, ${pythOracle.toString()}, ${dexProgram.toString()}, ${zetaProgram.toString()}`
 );
 
 // Helper function to make the post request to server to mint devnet dummy USDC collateral
@@ -349,16 +349,16 @@ describe("zeta-cpi", () => {
     }
 
     const cancelAccounts = {
-      zeta_group: zetaGroupAddress,
+      zetaGroup: zetaGroupAddress,
       state: stateAddress,
-      margin_account: marginAddress,
-      dex_program: dexProgram,
-      serum_authority: serumAuthorityAddress,
-      open_orders: openOrdersAccount,
+      marginAccount: marginAddress,
+      dexProgram: dexProgram,
+      serumAuthority: serumAuthorityAddress,
+      openOrders: openOrdersAccount,
       market: market.address,
       bids: market.serumMarket.decoded.bids,
       asks: market.serumMarket.decoded.asks,
-      event_queue: market.serumMarket.decoded.eventQueue,
+      eventQueue: market.serumMarket.decoded.eventQueue,
     };
 
     const tx = await program.rpc.cancelOrder(
