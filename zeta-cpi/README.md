@@ -35,9 +35,12 @@ cargo install --git https://github.com/project-serum/anchor --tag v0.18.2 anchor
 sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y pkg-config build-essential libudev-dev
 ```
 
-### Installation
+### Run integration test
 
 ```sh
+# Configure solana network to devnet.
+solana config set --url devnet
+
 # You will need to airdrop yourself some devnet solana to deploy the zeta cpi program.
 solana airdrop 5
 
