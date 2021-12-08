@@ -46,7 +46,6 @@ pub fn get_otm_amount(spot: u64, strike: u64, product: Kind) -> Result<u64> {
     }
 }
 
-// TODO refactor and move constants to a file.
 /// Initial margin for single product
 pub fn get_initial_margin_per_lot(
     spot: u64,
@@ -56,57 +55,45 @@ pub fn get_initial_margin_per_lot(
     side: Side,
 ) -> Result<u64> {
     let initial_margin: u128 = match product {
-        // 15% of Spot
         Kind::Future => (spot as u128)
-            .checked_mul(1500)
+            .checked_mul(FUTURE_MARGIN_INITIAL)
             .unwrap()
-            .checked_div(10000)
+            .checked_div(MARGIN_PRECISION_DENOMINATOR)
             .unwrap(),
-        Kind::Call | Kind::Put => {
-            let otm_amount = get_otm_amount(spot, strike, product)?;
-            match side {
-                Side::Bid => {
-                    // min(100% * mark price, 15% of spot)
-                    // Place holder calcs in place for 100% * mark price
-                    (spot as u128)
-                        .checked_mul(1500)
+        Kind::Call | Kind::Put => match side {
+            Side::Bid => (spot as u128)
+                .checked_mul(OPTION_SPOT_PCT_LONG_INITIAL)
+                .unwrap()
+                .checked_div(MARGIN_PRECISION_DENOMINATOR)
+                .unwrap()
+                .min(
+                    (mark as u128)
+                        .checked_mul(OPTION_MARK_PCT_LONG_INITIAL)
                         .unwrap()
-                        .checked_div(10000)
-                        .unwrap()
-                        .min(
-                            (mark as u128)
-                                .checked_mul(
-                                    MARK_PRICE_PERCENTAGE.checked_mul(10u128.pow(2)).unwrap(),
-                                )
-                                .unwrap()
-                                .checked_div(10000)
-                                .unwrap(),
-                        )
-                }
-                Side::Ask => {
-                    // max(25% - OTM Amount/spot, 10%)
-                    let percentage_multiplier: u128 = 1000u128.max(
-                        2500u128
-                            .checked_sub(
-                                // Convert OTM/Spot to a percentage
-                                (otm_amount as u128)
-                                    .checked_mul(10000)
-                                    .unwrap()
-                                    .checked_div(spot as u128)
-                                    .unwrap(),
-                            )
-                            .unwrap_or(0),
-                    );
-                    // Scale spot by the percentage multiplier
-                    (spot as u128)
-                        .checked_mul(percentage_multiplier)
-                        .unwrap()
-                        .checked_div(10000)
-                        .unwrap()
-                }
-                Side::Uninitialized => unreachable!(),
+                        .checked_div(MARGIN_PRECISION_DENOMINATOR)
+                        .unwrap(),
+                ),
+            Side::Ask => {
+                let otm_amount: u128 = get_otm_amount(spot, strike, product)?.into();
+                let otm_pct = otm_amount
+                    .checked_mul(MARGIN_PRECISION_DENOMINATOR)
+                    .unwrap()
+                    .checked_div(spot.into())
+                    .unwrap();
+
+                let dynamic_margin_pct = OPTION_BASE_PCT_SHORT_INITIAL
+                    .checked_sub(otm_pct)
+                    .unwrap_or(0);
+
+                let margin_pct = dynamic_margin_pct.max(OPTION_SPOT_PCT_SHORT_INITIAL);
+                margin_pct
+                    .checked_mul(spot.into())
+                    .unwrap()
+                    .checked_div(MARGIN_PRECISION_DENOMINATOR)
+                    .unwrap()
             }
-        }
+            Side::Uninitialized => unreachable!(),
+        },
         _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
     };
     Ok(u64::try_from(initial_margin).unwrap())
@@ -121,47 +108,40 @@ pub fn get_maintenance_margin_per_lot(
     long: bool,
 ) -> Result<u64> {
     let maintenance_margin: u128 = match product {
-        // 7.5% of Spot
         Kind::Future => (spot as u128)
-            .checked_mul(750)
+            .checked_mul(FUTURE_MARGIN_MAINTENANCE)
             .unwrap()
-            .checked_div(10000)
+            .checked_div(MARGIN_PRECISION_DENOMINATOR)
             .unwrap(),
         Kind::Call | Kind::Put => {
-            let otm_amount = get_otm_amount(spot, strike, product)?;
             if long {
-                // min(100% * mark price, 7.5% of spot)
-                // Place holder calcs for 100% * mark price
                 (spot as u128)
-                    .checked_mul(750)
+                    .checked_mul(OPTION_SPOT_PCT_LONG_MAINTENANCE)
                     .unwrap()
-                    .checked_div(10000)
+                    .checked_div(MARGIN_PRECISION_DENOMINATOR)
                     .unwrap()
                     .min(
                         (mark as u128)
-                            .checked_mul(10000)
+                            .checked_mul(OPTION_MARK_PCT_LONG_MAINTENANCE)
                             .unwrap()
-                            .checked_div(10000)
+                            .checked_div(MARGIN_PRECISION_DENOMINATOR)
                             .unwrap(),
                     )
             } else {
-                // max((12.5% - OTM Amount/spot)*spot, 5% * spot)
-                let percentage_multiplier: u128 = 500u128.max(
-                    1250u128
-                        .checked_sub(
-                            (otm_amount as u128)
-                                .checked_mul(10000)
-                                .unwrap()
-                                .checked_div(spot as u128)
-                                .unwrap(),
-                        )
-                        .unwrap_or(0),
-                );
-
-                (spot as u128)
-                    .checked_mul(percentage_multiplier)
+                let otm_amount: u128 = get_otm_amount(spot, strike, product)?.into();
+                let otm_pct = otm_amount
+                    .checked_mul(MARGIN_PRECISION_DENOMINATOR)
                     .unwrap()
-                    .checked_div(10000)
+                    .checked_div(spot.into())
+                    .unwrap();
+                let dynamic_margin_pct = OPTION_SPOT_PCT_SHORT_MAINTENANCE
+                    .checked_sub(otm_pct)
+                    .unwrap_or(0);
+                let margin_pct = dynamic_margin_pct.max(OPTION_BASE_PCT_SHORT_MAINTENANCE);
+                margin_pct
+                    .checked_mul(spot.into())
+                    .unwrap()
+                    .checked_div(MARGIN_PRECISION_DENOMINATOR)
                     .unwrap()
             }
         }
