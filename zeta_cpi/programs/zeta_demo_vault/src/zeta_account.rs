@@ -1,6 +1,6 @@
 use crate::*;
-use std::convert::{From, TryFrom};
 use bytemuck::{Pod, Zeroable};
+use std::convert::{From, TryFrom};
 
 #[zero_copy]
 #[derive(Default)]
@@ -179,10 +179,7 @@ impl ZetaGroup {
     /// 1. Live
     /// 2. Strike is set
     /// 3. Pricing update was within the required intervals.
-    pub fn validate_series_tradeable(
-        &self,
-        expiry_index: usize,
-    ) -> Result<()> {
+    pub fn validate_series_tradeable(&self, expiry_index: usize) -> Result<()> {
         let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {
             msg!("Series status = {:?}", series_status);

@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use anchor_syn::{parser, codegen::program::common::SIGHASH_GLOBAL_NAMESPACE};
+use anchor_syn::{codegen::program::common::SIGHASH_GLOBAL_NAMESPACE, parser};
 use heck::SnakeCase;
 use quote::quote;
 use syn::parse_macro_input;

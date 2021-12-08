@@ -159,7 +159,7 @@ pub mod zeta_cpi {
         let cost_of_trades = margin_account.positions[market_index].cost_of_trades;
 
         msg!(
-            "MarginAccount position for market index {}: Position={}, Cost of trades={}",
+            "Margin account position for market index {}: Position={}, Cost of trades={}",
             market_index,
             position,
             cost_of_trades
