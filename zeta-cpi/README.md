@@ -1,8 +1,3 @@
-## Developing
-
-This program requires building the Serum DEX from source, which is done using
-git submodules.
-
 ### Install Dependencies
 
 ### Rust
