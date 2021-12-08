@@ -40,6 +40,18 @@ cargo install --git https://github.com/project-serum/anchor --tag v0.18.2 anchor
 sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y pkg-config build-essential libudev-dev
 ```
 
+### Variables
+
+You will need to modify the environment variable at `./.env` to the latest program id.
+
+| Key         |                    Value                     |
+| ----------- | :------------------------------------------: |
+| NETWORK_URL |        https://api.devnet.solana.com         |
+| PROGRAM_ID  | 98utEQgwfbkvTKVS1seNQmFYFviaLsXAXqaWHr1V8JXF |
+| SERVER_URL  |         https://server.zeta.markets          |
+
+Devnet PROGRAM_ID is subject to change based on redeployments.
+
 ### Run integration test
 
 ```sh
