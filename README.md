@@ -65,12 +65,12 @@ The accounts and relevant data that is currently supported (non-exhaustive):
 
 ## Programs
 
-### zeta_cpi
+### zeta-cpi
 
 Basic usage examples outlined in a dummy proxy program that simply calls the main zeta program instructions. Also includes account layouts and outlines how to read all relevant on-chain data from the Zeta program.
 This should give all the boilerplate needed to execute core program functionality both on the Rust program and Typescript client (via `tests/zeta_cpi.ts`).
 
-### zeta_demo_vault (WIP)
+### examples/vault-put-sell (WIP)
 
 _Work in progress_
 
