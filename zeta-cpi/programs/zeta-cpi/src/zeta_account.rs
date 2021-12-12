@@ -78,6 +78,21 @@ impl Greeks {
     }
 }
 
+#[zero_copy]
+#[derive(Default)]
+pub struct MarginParameters {
+    pub future_margin_initial: u64,
+    pub future_margin_maintenance: u64,
+    pub option_mark_percentage_long_initial: u64,
+    pub option_spot_percentage_long_initial: u64,
+    pub option_spot_percentage_short_initial: u64,
+    pub option_base_percentage_short_initial: u64,
+    pub option_mark_percentage_long_maintenance: u64,
+    pub option_spot_percentage_long_maintenance: u64,
+    pub option_spot_percentage_short_maintenance: u64,
+    pub option_base_percentage_short_maintenance: u64,
+}
+
 #[account(zero_copy)]
 pub struct ZetaGroup {
     pub nonce: u8,
@@ -86,6 +101,7 @@ pub struct ZetaGroup {
     pub oracle: Pubkey,
     pub greeks: Pubkey,
     pub pricing_parameters: PricingParameters,
+    pub margin_parameters: MarginParameters,
     pub padding: [u8; 122], // 256 - 98 - 36
 
     pub products: [Product; 46],
@@ -276,12 +292,25 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn get_initial_margin(&self, mark_price: u64, product: &Product, spot: u64) -> u64 {
+    pub fn get_initial_margin(
+        &self,
+        mark_price: u64,
+        product: &Product,
+        spot: u64,
+        margin_parameters: &MarginParameters,
+    ) -> u64 {
         let initial_margin_requirement = match product.strike.get_strike() {
             Ok(strike) => (self.opening_orders[0] as u64)
                 .checked_mul(
-                    get_initial_margin_per_lot(spot, strike, mark_price, product.kind, Side::Bid)
-                        .unwrap(),
+                    get_initial_margin_per_lot(
+                        spot,
+                        strike,
+                        mark_price,
+                        product.kind,
+                        Side::Bid,
+                        margin_parameters,
+                    )
+                    .unwrap(),
                 )
                 .unwrap()
                 .checked_add(
@@ -293,6 +322,7 @@ impl Position {
                                 mark_price,
                                 product.kind,
                                 Side::Ask,
+                                margin_parameters,
                             )
                             .unwrap(),
                         )
@@ -304,7 +334,13 @@ impl Position {
         initial_margin_requirement
     }
 
-    pub fn get_maintenance_margin(&self, mark_price: u64, product: &Product, spot: u64) -> u64 {
+    pub fn get_maintenance_margin(
+        &self,
+        mark_price: u64,
+        product: &Product,
+        spot: u64,
+        margin_parameters: &MarginParameters,
+    ) -> u64 {
         let maintenance_margin_requirement = match product.strike.get_strike() {
             Ok(strike) => (self.position.abs() as u64)
                 .checked_mul(
@@ -314,6 +350,7 @@ impl Position {
                         mark_price,
                         product.kind,
                         self.position >= 0,
+                        margin_parameters,
                     )
                     .unwrap(),
                 )
@@ -362,7 +399,12 @@ impl MarginAccount {
             .iter()
             .enumerate()
             .map(|(i, position)| {
-                position.get_initial_margin(greeks.mark_prices[i], &zeta_group.products[i], spot)
+                position.get_initial_margin(
+                    greeks.mark_prices[i],
+                    &zeta_group.products[i],
+                    spot,
+                    &zeta_group.margin_parameters,
+                )
             })
             .sum();
         initial_margin_requirement
@@ -383,6 +425,7 @@ impl MarginAccount {
                     greeks.mark_prices[i],
                     &zeta_group.products[i],
                     spot,
+                    &zeta_group.margin_parameters,
                 )
             })
             .sum();
