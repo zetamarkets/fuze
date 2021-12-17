@@ -1,6 +1,6 @@
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
-import { VaultPutSell } from "../target/types/vault_put_sell";
+import { Vault } from "../target/types/vault";
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import assert from "assert";
 import { sleep, IVaultBumps, IEpochTimes } from "./utils";
@@ -11,12 +11,12 @@ import { sleep, IVaultBumps, IEpochTimes } from "./utils";
 
 const DECIMALS = 6;
 
-describe("vault-put-sell", () => {
+describe("vault", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.Provider.env();
   anchor.setProvider(provider);
 
-  const program = anchor.workspace.VaultPutSell as Program<VaultPutSell>;
+  const program = anchor.workspace.Vault as Program<Vault>;
 
   const vaultAuthority = anchor.web3.Keypair.generate();
   const userKeypair = anchor.web3.Keypair.generate();
@@ -76,7 +76,7 @@ describe("vault-put-sell", () => {
     bumps: IVaultBumps,
     epochTimes: IEpochTimes;
 
-  it("Initializes the vault vault", async () => {
+  it("Initializes the vault", async () => {
     [vaultAccount, vaultAccountBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [Buffer.from(vaultName)],
@@ -104,8 +104,10 @@ describe("vault-put-sell", () => {
     epochTimes = {
       startEpoch: nowBn.add(new anchor.BN(5)),
       endDeposits: nowBn.add(new anchor.BN(10)),
-      endEpoch: nowBn.add(new anchor.BN(15)),
-      endEscrow: nowBn.add(new anchor.BN(16)),
+      startAuction: nowBn.add(new anchor.BN(12)),
+      endAuction: nowBn.add(new anchor.BN(15)),
+      startSettlement: nowBn.add(new anchor.BN(18)),
+      endEpoch: nowBn.add(new anchor.BN(20)),
     };
 
     await program.rpc.initializeVault(vaultName, bumps, epochTimes, {
@@ -300,36 +302,22 @@ describe("vault-put-sell", () => {
     await program.rpc.exchangeRedeemableForUsdc(firstWithdrawal, {
       accounts: {
         userAuthority: userKeypair.publicKey,
-        escrowUsdc,
+        userUsdc,
         userRedeemable,
         vaultAccount,
         usdcMint,
         redeemableMint,
-        watermelonMint,
         vaultUsdc,
         tokenProgram: TOKEN_PROGRAM_ID,
       },
-      instructions: [
-        program.instruction.initEscrowUsdc({
-          accounts: {
-            userAuthority: userKeypair.publicKey,
-            escrowUsdc,
-            vaultAccount,
-            usdcMint,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          },
-        }),
-      ],
       signers: [userKeypair],
     });
 
     totalvaultUsdc = totalvaultUsdc.sub(firstWithdrawal);
     let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
     assert.ok(vaultUsdcAccount.amount.eq(totalvaultUsdc));
-    let escrowUsdcAccount = await usdcMintAccount.getAccountInfo(escrowUsdc);
-    assert.ok(escrowUsdcAccount.amount.eq(firstWithdrawal));
+    let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
+    assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
   });
 
   // it("Exchanges user Redeemable tokens for watermelon", async () => {

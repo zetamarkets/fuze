@@ -9,8 +9,10 @@ export interface IVaultBumps {
 export interface IEpochTimes {
   startEpoch: anchor.BN;
   endDeposits: anchor.BN;
+  startAuction: anchor.BN;
+  endAuction: anchor.BN;
+  startSettlement: anchor.BN;
   endEpoch: anchor.BN;
-  endEscrow: anchor.BN;
 }
 
 export function sleep(ms) {

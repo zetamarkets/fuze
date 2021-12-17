@@ -1,12 +1,12 @@
 [package]
-name = "vault-put-sell"
+name = "vault"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "vault_put_sell"
+name = "vault"
 
 [features]
 no-entrypoint = []
@@ -19,4 +19,4 @@ anchor-lang = "0.18.2"
 anchor-spl = "0.18.2"
 bytemuck = "1.4.0"
 rust_decimal = { git = "https://github.com/zetamarkets/rust-decimal.git", features = ["maths"] }
-cpi-interface = { path = "../../../../cpi-interface", version = "0.1.0" }
+cpi-interface = { path = "../../../cpi-interface", version = "0.1.0" }
