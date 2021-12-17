@@ -1,16 +1,15 @@
 import * as anchor from "@project-serum/anchor";
 
 export interface IVaultBumps {
-  idoAccount: number;
+  vaultAccount: number;
   redeemableMint: number;
-  poolWatermelon: number;
-  poolUsdc: number;
+  vaultUsdc: number;
 }
 
 export interface IEpochTimes {
-  startIdo: anchor.BN;
+  startEpoch: anchor.BN;
   endDeposits: anchor.BN;
-  endIdo: anchor.BN;
+  endEpoch: anchor.BN;
   endEscrow: anchor.BN;
 }
 
