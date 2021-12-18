@@ -76,6 +76,11 @@ impl Greeks {
     pub fn get_futures_price(&self, expiry_index: usize) -> u64 {
         self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]
     }
+
+    pub fn get_product_greeks_slice(&self, expiry_index: usize) -> &[ProductGreeks] {
+        let head = expiry_index * NUM_STRIKES;
+        &self.product_greeks[head..head + NUM_STRIKES]
+    }
 }
 
 #[account(zero_copy)]

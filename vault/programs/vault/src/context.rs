@@ -179,6 +179,19 @@ pub struct WithdrawVaultUsdc<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct PlaceAuctionOrder<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
+        bump = vault_account.bumps.vault_account,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub place_order_cpi_accounts: PlaceOrder<'info>,
+}
+
 #[account]
 #[derive(Default)]
 pub struct VaultAccount {

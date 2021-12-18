@@ -152,10 +152,13 @@ describe("zeta-cpi", () => {
       false
     );
 
-    // Arbitrarily choosing the nearest expiry, lowest strike call
-    const expiryIndex = Exchange.zetaGroup.frontExpiryIndex;
-    const marketIndex = 0;
-    market = Exchange.markets.getMarketsByExpiryIndex(expiryIndex)[marketIndex];
+    // Arbitrarily choosing the nearest expiry, lowest strike call (productIndex 0)
+    const expiryIndex = Exchange.zetaGroup.frontExpiryIndex; // [0,2)
+    const productIndex = 0; // [0,23)
+    const marketIndex =
+      expiryIndex * constants.PRODUCTS_PER_EXPIRY + productIndex; // [0,46)
+    market =
+      Exchange.markets.getMarketsByExpiryIndex(expiryIndex)[productIndex];
 
     // Select the trade side for when we test place and cancel order
     side = types.Side.BID;

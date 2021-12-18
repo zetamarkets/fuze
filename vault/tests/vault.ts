@@ -4,6 +4,7 @@ import { Vault } from "../target/types/vault";
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import assert from "assert";
 import { sleep, IVaultBumps, IEpochTimes } from "./utils";
+import { Exchange, Network, utils as zetaUtils } from "@zetamarkets/sdk";
 
 // TODO:
 
@@ -15,6 +16,7 @@ describe("vault", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.Vault as Program<Vault>;
+  const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 
   const vaultAuthority = anchor.web3.Keypair.generate();
   const userKeypair = anchor.web3.Keypair.generate();
@@ -26,6 +28,16 @@ describe("vault", () => {
   let vaultAuthorityUsdc: anchor.web3.PublicKey;
 
   it("Initializes the state-of-the-world", async () => {
+    // Load Zeta SDK exchange object which has all the info one might need
+    await Exchange.load(
+      zetaProgram,
+      Network.DEVNET,
+      provider.connection,
+      zetaUtils.defaultCommitment(),
+      undefined,
+      0
+    );
+
     // Airdrop some SOL to the vault authority
     await provider.connection.confirmTransaction(
       await provider.connection.requestAirdrop(
@@ -285,6 +297,58 @@ describe("vault", () => {
     assert.ok(secondUserRedeemableAccount.amount.eq(secondDeposit));
   });
 
+  // Select instrument for vault to trade
+  // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
+  const expiryIndex = Exchange.zetaGroup.frontExpiryIndex; // [0,2)
+  const productIndex = 0; // [0,23)
+  const marketIndex = expiryIndex * PRODUCTS_PER_EXPIRY + productIndex; // [0,46)
+  market = Exchange.markets.getMarketsByExpiryIndex(expiryIndex)[productIndex];
+
+  it("Place order via CPI", async () => {
+    const marketAccounts = {
+      market: market.address,
+      requestQueue: market.serumMarket.decoded.requestQueue,
+      eventQueue: market.serumMarket.decoded.eventQueue,
+      bids: market.serumMarket.decoded.bids,
+      asks: market.serumMarket.decoded.asks,
+      coinVault: market.serumMarket.decoded.baseVault,
+      pcVault: market.serumMarket.decoded.quoteVault,
+      orderPayerTokenAccount:
+        side == types.Side.BID ? market.quoteVault : market.baseVault,
+      coinWallet: market.baseVault,
+      pcWallet: market.quoteVault,
+    };
+
+    const tx = await program.rpc.placeOrder(
+      new anchor.BN(utils.convertDecimalToNativeInteger(1)),
+      1,
+      types.toProgramSide(side),
+      {
+        accounts: {
+          zetaProgram: zetaProgram,
+          placeOrderCpiAccounts: {
+            state: stateAddress,
+            zetaGroup: zetaGroupAddress,
+            marginAccount: marginAddress,
+            authority: userKeypair.publicKey,
+            dexProgram: dexProgram,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            serumAuthority: serumAuthorityAddress,
+            greeks: greeksAddress,
+            openOrders: openOrdersAccount,
+            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            marketAccounts: marketAccounts,
+            oracle: pythOracle,
+            marketNode: marketNodeAddress,
+          },
+        },
+      }
+    );
+    console.log("Your transaction signature", tx);
+  });
+
+  // Withdraw Phase
+
   const firstWithdrawal = new anchor.BN(2_000_000);
 
   it("Exchanges user Redeemable tokens for USDC", async () => {
@@ -318,46 +382,46 @@ describe("vault", () => {
     assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
   });
 
-  it("Exchanges user Redeemable tokens for watermelon", async () => {
-    // Wait until the vault has ended.
-    if (Date.now() < epochTimes.endvault.toNumber() * 1000) {
-      await sleep(epochTimes.endvault.toNumber() * 1000 - Date.now() + 3000);
-    }
+  // it("Exchanges user Redeemable tokens for watermelon", async () => {
+  //   // Wait until the vault has ended.
+  //   if (Date.now() < epochTimes.endvault.toNumber() * 1000) {
+  //     await sleep(epochTimes.endvault.toNumber() * 1000 - Date.now() + 3000);
+  //   }
 
-    let firstUserRedeemable = firstDeposit.sub(firstWithdrawal);
-    let userWatermelon =
-      await watermelonMintAccount.createAssociatedTokenAccount(
-        userKeypair.publicKey
-      );
+  //   let firstUserRedeemable = firstDeposit.sub(firstWithdrawal);
+  //   let userWatermelon =
+  //     await watermelonMintAccount.createAssociatedTokenAccount(
+  //       userKeypair.publicKey
+  //     );
 
-    await program.rpc.exchangeRedeemableForWatermelon(firstUserRedeemable, {
-      accounts: {
-        payer: provider.wallet.publicKey,
-        userAuthority: userKeypair.publicKey,
-        userWatermelon,
-        userRedeemable,
-        vaultAccount,
-        watermelonMint,
-        redeemableMint,
-        vaultWatermelon,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      // signers: [userKeypair],
-    });
+  //   await program.rpc.exchangeRedeemableForWatermelon(firstUserRedeemable, {
+  //     accounts: {
+  //       payer: provider.wallet.publicKey,
+  //       userAuthority: userKeypair.publicKey,
+  //       userWatermelon,
+  //       userRedeemable,
+  //       vaultAccount,
+  //       watermelonMint,
+  //       redeemableMint,
+  //       vaultWatermelon,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     },
+  //     // signers: [userKeypair],
+  //   });
 
-    let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-      vaultWatermelon
-    );
-    let redeemedWatermelon = firstUserRedeemable
-      .mul(watermelonvaultAmount)
-      .div(totalvaultUsdc);
-    let remainingWatermelon = watermelonvaultAmount.sub(redeemedWatermelon);
-    assert.ok(vaultWatermelonAccount.amount.eq(remainingWatermelon));
-    let userWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-      userWatermelon
-    );
-    assert.ok(userWatermelonAccount.amount.eq(redeemedWatermelon));
-  });
+  //   let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
+  //     vaultWatermelon
+  //   );
+  //   let redeemedWatermelon = firstUserRedeemable
+  //     .mul(watermelonvaultAmount)
+  //     .div(totalvaultUsdc);
+  //   let remainingWatermelon = watermelonvaultAmount.sub(redeemedWatermelon);
+  //   assert.ok(vaultWatermelonAccount.amount.eq(remainingWatermelon));
+  //   let userWatermelonAccount = await watermelonMintAccount.getAccountInfo(
+  //     userWatermelon
+  //   );
+  //   assert.ok(userWatermelonAccount.amount.eq(redeemedWatermelon));
+  // });
 
   // it("Exchanges second user's Redeemable tokens for watermelon", async () => {
   //   let secondUserWatermelon =

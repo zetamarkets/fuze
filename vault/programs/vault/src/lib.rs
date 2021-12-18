@@ -16,6 +16,7 @@ use crate::zeta_constants::*;
 use crate::zeta_utils::*;
 
 const DECIMALS: u8 = 6;
+const UNIX_WEEK: u64 = 604800; // unix time (seconds)
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -183,37 +184,86 @@ pub mod vault {
         Ok(())
     }
 
-    // TODO
-    // 1. Select instrument
+    // #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    // pub fn validate_market(ctx: Context<ValidateMarket>, delta: u8) -> ProgramResult {
+    //     msg!("INITIALIZE AUCTION");
+    //     assert!(delta >= 0 && delta <= 100);
+    //     // Delta values are stored at high precision for pricing
+    //     let native_delta = (delta as u64)
+    //         .checked_mul(10u64.pow(PRICING_PRECISION))
+    //         .unwrap();
 
+    //     // 1. Instrument selection: select the closest to 1w expiry and specific delta strike
+    //     let zeta_group =
+    //         deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
+    //     // Get the expiry closest to 1 week
+    //     let closest_expiry_index = 0;
+    //     let closest_expiry_diff = unsigned_abs_diff(
+    //         UNIX_WEEK,
+    //         zeta_group.expiry_series[closest_expiry_index].expiry_ts,
+    //     )
+    //     .unwrap();
+    //     for (i, t) in zeta_group.expiry_series.iter().enumerate() {
+    //         let expiry_diff = unsigned_abs_diff(UNIX_WEEK, t.expiry_ts).unwrap();
+    //         if expiry_diff < closest_expiry_diff {
+    //             closest_expiry_index = i;
+    //         }
+    //     }
+    //     // Get strike closest to specified delta
+    //     let greeks = deserialize_account_info_zerocopy::<Greeks>(&ctx.accounts.greeks).unwrap();
+    //     let product_greeks = greeks.get_product_greeks_slice(closest_expiry_index);
+    //     let closest_delta_index = 0;
+    //     let closest_delta_diff =
+    //         unsigned_abs_diff(native_delta, product_greeks[closest_delta_index].delta).unwrap();
+    //     for (i, g) in product_greeks.iter().enumerate() {
+    //         let delta_diff = unsigned_abs_diff(native_delta, g.delta).unwrap();
+    //         if delta_diff < closest_delta_diff {
+    //             closest_delta_index = i;
+    //         }
+    //     }
+
+    //     // Sell puts on Zeta for given market
+    //     let market_index = closest_expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_STRIKES + closest_delta_index;
+
+    //     Ok(())
+    // }
+
+    // #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    // pub fn sell_put(ctx: Context<SellPut>) -> ProgramResult {
+    //     msg!("AUCTION: SELL PUT");
+
+    //     // Sell puts on Zeta for given market
+    //     let market_key = ctx.accounts.marketAccounts.market.key();
+    //     let market = ctx.accounts.marketAccounts.zeta_group.get_product_index_by_key(market_key);
+    //     let strike = market.strike;
+    //     let size = ctx.accounts.vault_usdc.amount.checked_div(strike).unwrap();
+    //     zeta_client::place_order(
+    //         ctx.accounts.zeta_program.clone(),
+    //         ctx.accounts.place_order_cpi_accounts.clone(),
+    //         price,
+    //         size,
+    //         Side::Ask,
+    //     );
+
+    //     Ok(())
+    // }
+
+    // TODO: in future move this on-chain
     #[access_control(auction_phase(&ctx.accounts.vault_account))]
-    pub fn init_auction(
-        ctx: Context<InitializeAuction>,
-        delta: u8,
+    pub fn place_auction_order(
+        ctx: Context<PlaceAuctionOrder>,
+        price: u64,
+        size: u32,
+        side: Side,
     ) -> ProgramResult {
-        msg!("INITIALIZE AUCTION");
-        assert!(delta >= 0 && delta <= 100);
-        // Delta values are stored at high precision for pricing
-        let native_delta = (delta as u64).checked_mul(10u64.pow(PRICING_PRECISION)).unwrap();
-
-        // 1. Instrument selection: select the specific delta strike and (nearest expiry?)
-        let zeta_group = deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
-        // Get the data for the front expiration.
-        let front_expiry_index = zeta_group.front_expiry_index as usize;
-        let front_expiry = zeta_group.expiry_series[front_expiry_index].expiry_ts;
-
-        let put_greeks = deserialize_account_info_zerocopy::<Greeks>(&ctx.accounts.greeks).unwrap();
-        let min_delta_diff = unsigned_abs_diff(native_delta, greeks.product_greeks[0].delta).unwrap();
-        let min_delta_index = 0;
-        for (i, g) in greeks.product_greeks.iter().enumerate() {
-            let delta_diff = unsigned_abs_diff(native_delta, g.delta).unwrap();
-            if delta_diff < min_delta_diff {
-                min_delta_index = i;
-            }
-        }
-
-
-        Ok(())
+        msg!("PLACE AUCTION ORDER");
+        zeta_client::place_order(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.place_order_cpi_accounts.clone(),
+            price,
+            size,
+            side,
+        )
     }
 }
 
@@ -323,7 +373,7 @@ fn settlement_phase(vault_account: &VaultAccount) -> ProgramResult {
 //     Ok(())
 // }
 
-fn unsigned_abs_diff(a: u64, b: u64) -> Option<u64>{
+fn unsigned_abs_diff(a: u64, b: u64) -> Option<u64> {
     if a > b {
         a.checked_sub(b)
     } else {

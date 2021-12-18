@@ -77,12 +77,9 @@ impl Greeks {
         self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]
     }
 
-    pub fn get_product_greeks_slice(&self, expiry_index: usize, kind: Kind) -> Result<u64> {
-        match kind {
-            Kind::Call => Ok(self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]),
-            Kind::Put => Ok(self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]),
-            _ => wrap_error!(Err(ErrorCode::InvalidOptionKind.into())),
-        }
+    pub fn get_product_greeks_slice(&self, expiry_index: usize) -> &[ProductGreeks] {
+        let head = expiry_index * NUM_STRIKES;
+        &self.product_greeks[head..head + NUM_STRIKES]
     }
 }
 
