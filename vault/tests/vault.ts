@@ -1,14 +1,23 @@
+require("dotenv").config({ path: __dirname + `/../.env` });
 import * as anchor from "@project-serum/anchor";
 import { Program } from "@project-serum/anchor";
 import { Vault } from "../target/types/vault";
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import assert from "assert";
 import { sleep, IVaultBumps, IEpochTimes } from "./utils";
-import { Exchange, Network, utils as zetaUtils } from "@zetamarkets/sdk";
+import {
+  Exchange,
+  Network,
+  utils as zetaUtils,
+  types,
+  constants,
+  Client,
+} from "@zetamarkets/sdk";
 
 // TODO:
 
 const DECIMALS = 6;
+const UNIX_WEEK: number = 604800; // unix time (seconds)
 
 describe("vault", () => {
   // Configure the client to use the local cluster.
@@ -21,11 +30,15 @@ describe("vault", () => {
   const vaultAuthority = anchor.web3.Keypair.generate();
   const userKeypair = anchor.web3.Keypair.generate();
 
+  const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
+
   // These are all of the variables we assume exist in the world already and
   // are available to the client.
   let usdcMintAccount: Token;
   let usdcMint: anchor.web3.PublicKey;
   let vaultAuthorityUsdc: anchor.web3.PublicKey;
+
+  let client: Client;
 
   it("Initializes the state-of-the-world", async () => {
     // Load Zeta SDK exchange object which has all the info one might need
@@ -36,6 +49,14 @@ describe("vault", () => {
       zetaUtils.defaultCommitment(),
       undefined,
       0
+    );
+
+    client = await Client.load(
+      provider.connection,
+      new anchor.Wallet(userKeypair),
+      zetaUtils.defaultCommitment(),
+      undefined,
+      false
     );
 
     // Airdrop some SOL to the vault authority
@@ -81,7 +102,6 @@ describe("vault", () => {
     vaultUsdc,
     vaultUsdcBump,
     userRedeemable,
-    escrowUsdc,
     secondUserRedeemable,
     bumps: IVaultBumps,
     epochTimes: IEpochTimes;
@@ -297,14 +317,61 @@ describe("vault", () => {
     assert.ok(secondUserRedeemableAccount.amount.eq(secondDeposit));
   });
 
-  // Select instrument for vault to trade
-  // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
-  const expiryIndex = Exchange.zetaGroup.frontExpiryIndex; // [0,2)
-  const productIndex = 0; // [0,23)
-  const marketIndex = expiryIndex * PRODUCTS_PER_EXPIRY + productIndex; // [0,46)
-  market = Exchange.markets.getMarketsByExpiryIndex(expiryIndex)[productIndex];
+  function getClosestMarket(
+    exchange: typeof Exchange, // TODO: change this to Market[] when sdk 0.8.3 released
+    delta: number,
+    expiry: number = UNIX_WEEK
+  ) {
+    // Find closest expiry
+    let closestExpiry = exchange.markets.expirySeries.sort((a, b) => {
+      return Math.abs(expiry - a.expiryTs) - Math.abs(expiry - b.expiryTs);
+    })[0];
+
+    // Find closest strike to 5-delta
+    let closestPutDeltaIndex = exchange.greeks.productGreeks.reduce(
+      (iMin, x, i, arr) =>
+        Math.abs(delta - zetaUtils.convertNativeBNToDecimal(x.delta)) <
+        Math.abs(delta - zetaUtils.convertNativeBNToDecimal(arr[iMin].delta))
+          ? i
+          : iMin,
+      0
+    );
+    assert(
+      closestPutDeltaIndex >= 0 &&
+        closestPutDeltaIndex < constants.PRODUCTS_PER_EXPIRY
+    );
+
+    let market = Exchange.markets.getMarketsByExpiryIndex(
+      closestExpiry.expiryIndex
+    )[constants.PRODUCTS_PER_EXPIRY + closestPutDeltaIndex];
+
+    console.log(
+      `Closest market found: Expiry ${market.expirySeries.expiryTs}, Strike ${market.strike}, Kind ${market.kind}`
+    );
+
+    return market;
+  }
 
   it("Place order via CPI", async () => {
+    // Select instrument for vault to trade
+    // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
+    let market = getClosestMarket(Exchange, 5);
+    // Determine sizing of trade
+    // size = total_vault_usdc / K
+    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+    let size = vaultUsdcAccount.amount
+      .div(new anchor.BN(market.strike))
+      .toNumber();
+    // Price - arbitrary rn
+    let price = 1;
+    console.log(`${size}`);
+
+    let [openOrdersAccount] = await zetaUtils.getOpenOrders(
+      zetaProgram,
+      market.address,
+      userKeypair.publicKey
+    );
+
     const marketAccounts = {
       market: market.address,
       requestQueue: market.serumMarket.decoded.requestQueue,
@@ -313,33 +380,35 @@ describe("vault", () => {
       asks: market.serumMarket.decoded.asks,
       coinVault: market.serumMarket.decoded.baseVault,
       pcVault: market.serumMarket.decoded.quoteVault,
-      orderPayerTokenAccount:
-        side == types.Side.BID ? market.quoteVault : market.baseVault,
+      orderPayerTokenAccount: types.Side.ASK,
       coinWallet: market.baseVault,
       pcWallet: market.quoteVault,
     };
 
-    const tx = await program.rpc.placeOrder(
-      new anchor.BN(utils.convertDecimalToNativeInteger(1)),
-      1,
-      types.toProgramSide(side),
+    const tx = await program.rpc.placeAuctionOrder(
+      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(price)),
+      size,
+      types.toProgramSide(types.Side.ASK),
       {
         accounts: {
           zetaProgram: zetaProgram,
+          vaultAuthority: vaultAuthority.publicKey,
+          vaultAccount: vaultAccount,
+          usdcMint: usdcMint,
           placeOrderCpiAccounts: {
-            state: stateAddress,
-            zetaGroup: zetaGroupAddress,
-            marginAccount: marginAddress,
+            state: Exchange.stateAddress,
+            zetaGroup: Exchange.zetaGroupAddress,
+            marginAccount: client.marginAccountAddress,
             authority: userKeypair.publicKey,
-            dexProgram: dexProgram,
+            dexProgram: constants.DEX_PID,
             tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: serumAuthorityAddress,
-            greeks: greeksAddress,
+            serumAuthority: Exchange.serumAuthority,
+            greeks: Exchange.greeksAddress,
             openOrders: openOrdersAccount,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
             oracle: pythOracle,
-            marketNode: marketNodeAddress,
+            marketNode: Exchange.greeks.nodeKeys[market.marketIndex],
           },
         },
       }
@@ -493,4 +562,10 @@ describe("vault", () => {
   //   let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
   //   assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
   // });
+
+  // Closes the account subscriptions so the test won't hang.
+  it("BOILERPLATE: Close websockets.", async () => {
+    await Exchange.close();
+    await client.close();
+  });
 });

@@ -22,8 +22,6 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod vault {
-    use std::ops::Mul;
-
     use super::*;
 
     #[access_control(validate_epoch_times(epoch_times))]
