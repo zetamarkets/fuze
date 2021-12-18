@@ -21,6 +21,8 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 #[program]
 pub mod vault {
+    use std::ops::Mul;
+
     use super::*;
 
     #[access_control(validate_epoch_times(epoch_times))]
@@ -180,6 +182,39 @@ pub mod vault {
 
         Ok(())
     }
+
+    // TODO
+    // 1. Select instrument
+
+    #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    pub fn init_auction(
+        ctx: Context<InitializeAuction>,
+        delta: u8,
+    ) -> ProgramResult {
+        msg!("INITIALIZE AUCTION");
+        assert!(delta >= 0 && delta <= 100);
+        // Delta values are stored at high precision for pricing
+        let native_delta = (delta as u64).checked_mul(10u64.pow(PRICING_PRECISION)).unwrap();
+
+        // 1. Instrument selection: select the specific delta strike and (nearest expiry?)
+        let zeta_group = deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
+        // Get the data for the front expiration.
+        let front_expiry_index = zeta_group.front_expiry_index as usize;
+        let front_expiry = zeta_group.expiry_series[front_expiry_index].expiry_ts;
+
+        let put_greeks = deserialize_account_info_zerocopy::<Greeks>(&ctx.accounts.greeks).unwrap();
+        let min_delta_diff = unsigned_abs_diff(native_delta, greeks.product_greeks[0].delta).unwrap();
+        let min_delta_index = 0;
+        for (i, g) in greeks.product_greeks.iter().enumerate() {
+            let delta_diff = unsigned_abs_diff(native_delta, g.delta).unwrap();
+            if delta_diff < min_delta_diff {
+                min_delta_index = i;
+            }
+        }
+
+
+        Ok(())
+    }
 }
 
 #[error]
@@ -196,6 +231,8 @@ pub enum ErrorCode {
     MarketNotLive,
     #[msg("Product dirty")]
     ProductDirty,
+    #[msg("Invalid option kind, must be Call or Put")]
+    InvalidOptionKind,
     // Vault-specific errors
     #[msg("Epoch must start in the future")]
     VaultFuture,
@@ -285,6 +322,14 @@ fn settlement_phase(vault_account: &VaultAccount) -> ProgramResult {
 //     }
 //     Ok(())
 // }
+
+fn unsigned_abs_diff(a: u64, b: u64) -> Option<u64>{
+    if a > b {
+        a.checked_sub(b)
+    } else {
+        b.checked_sub(a)
+    }
+}
 
 /// Trait to allow trimming ascii whitespace from a &[u8].
 pub trait StripAsciiWhitespace {

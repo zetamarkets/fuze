@@ -198,4 +198,6 @@ pub enum ErrorCode {
     MarketNotLive,
     #[msg("Product dirty")]
     ProductDirty,
+    #[msg("Invalid option kind, must be Call or Put")]
+    InvalidOptionKind,
 }

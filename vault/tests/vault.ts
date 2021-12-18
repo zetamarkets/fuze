@@ -6,8 +6,6 @@ import assert from "assert";
 import { sleep, IVaultBumps, IEpochTimes } from "./utils";
 
 // TODO:
-// [] for our purposes can sack "watermelon"
-// [] remove permissionless redeem for watermelon
 
 const DECIMALS = 6;
 
@@ -320,46 +318,46 @@ describe("vault", () => {
     assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
   });
 
-  // it("Exchanges user Redeemable tokens for watermelon", async () => {
-  //   // Wait until the vault has ended.
-  //   if (Date.now() < epochTimes.endvault.toNumber() * 1000) {
-  //     await sleep(epochTimes.endvault.toNumber() * 1000 - Date.now() + 3000);
-  //   }
+  it("Exchanges user Redeemable tokens for watermelon", async () => {
+    // Wait until the vault has ended.
+    if (Date.now() < epochTimes.endvault.toNumber() * 1000) {
+      await sleep(epochTimes.endvault.toNumber() * 1000 - Date.now() + 3000);
+    }
 
-  //   let firstUserRedeemable = firstDeposit.sub(firstWithdrawal);
-  //   let userWatermelon =
-  //     await watermelonMintAccount.createAssociatedTokenAccount(
-  //       userKeypair.publicKey
-  //     );
+    let firstUserRedeemable = firstDeposit.sub(firstWithdrawal);
+    let userWatermelon =
+      await watermelonMintAccount.createAssociatedTokenAccount(
+        userKeypair.publicKey
+      );
 
-  //   await program.rpc.exchangeRedeemableForWatermelon(firstUserRedeemable, {
-  //     accounts: {
-  //       payer: provider.wallet.publicKey,
-  //       userAuthority: userKeypair.publicKey,
-  //       userWatermelon,
-  //       userRedeemable,
-  //       vaultAccount,
-  //       watermelonMint,
-  //       redeemableMint,
-  //       vaultWatermelon,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //     // signers: [userKeypair],
-  //   });
+    await program.rpc.exchangeRedeemableForWatermelon(firstUserRedeemable, {
+      accounts: {
+        payer: provider.wallet.publicKey,
+        userAuthority: userKeypair.publicKey,
+        userWatermelon,
+        userRedeemable,
+        vaultAccount,
+        watermelonMint,
+        redeemableMint,
+        vaultWatermelon,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      // signers: [userKeypair],
+    });
 
-  //   let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-  //     vaultWatermelon
-  //   );
-  //   let redeemedWatermelon = firstUserRedeemable
-  //     .mul(watermelonvaultAmount)
-  //     .div(totalvaultUsdc);
-  //   let remainingWatermelon = watermelonvaultAmount.sub(redeemedWatermelon);
-  //   assert.ok(vaultWatermelonAccount.amount.eq(remainingWatermelon));
-  //   let userWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-  //     userWatermelon
-  //   );
-  //   assert.ok(userWatermelonAccount.amount.eq(redeemedWatermelon));
-  // });
+    let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
+      vaultWatermelon
+    );
+    let redeemedWatermelon = firstUserRedeemable
+      .mul(watermelonvaultAmount)
+      .div(totalvaultUsdc);
+    let remainingWatermelon = watermelonvaultAmount.sub(redeemedWatermelon);
+    assert.ok(vaultWatermelonAccount.amount.eq(remainingWatermelon));
+    let userWatermelonAccount = await watermelonMintAccount.getAccountInfo(
+      userWatermelon
+    );
+    assert.ok(userWatermelonAccount.amount.eq(redeemedWatermelon));
+  });
 
   // it("Exchanges second user's Redeemable tokens for watermelon", async () => {
   //   let secondUserWatermelon =
