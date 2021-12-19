@@ -18,7 +18,7 @@ use crate::zeta_utils::*;
 const DECIMALS: u8 = 6;
 const UNIX_WEEK: u64 = 604800; // unix time (seconds)
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("E1LM1zGDvJsEkbFJfLV2dyS83dfSAvbbfNG2YxSvuTz6");
 
 #[program]
 pub mod vault {
@@ -245,6 +245,36 @@ pub mod vault {
 
     //     Ok(())
     // }
+
+    pub fn initialize_zeta_margin_account(ctx: Context<InitializeZetaMarginAccount>) -> ProgramResult {
+        zeta_client::initialize_margin_account(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.initialize_margin_cpi_accounts.clone(),
+        )
+    }
+    
+    pub fn deposit_zeta(ctx: Context<DepositZeta>, amount: u64) -> ProgramResult {
+        zeta_client::deposit(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.deposit_cpi_accounts.clone(),
+            amount,
+        )
+    }
+    
+    pub fn withdraw_zeta(ctx: Context<WithdrawZeta>, amount: u64) -> ProgramResult {
+        zeta_client::withdraw(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.withdraw_cpi_accounts.clone(),
+            amount,
+        )
+    }
+    
+    pub fn initialize_zeta_open_orders(ctx: Context<InitializeZetaOpenOrders>) -> ProgramResult {
+        zeta_client::initialize_open_orders(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.initialize_open_orders_cpi_accounts.clone(),
+        )
+    }
 
     // TODO: in future move this on-chain
     #[access_control(auction_phase(&ctx.accounts.vault_account))]

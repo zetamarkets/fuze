@@ -88,50 +88,37 @@ describe("zeta-cpi", () => {
 
   const program = anchor.workspace.ZetaCpi as anchor.Program<ZetaCpi>;
 
-  let [zetaGroupAddress, _zetaGroupNonce] = [undefined, undefined];
-  let [marginAddress, _marginNonce] = [undefined, undefined];
-  let [stateAddress, _stateNonce] = [undefined, undefined];
-  let [vaultAddress, _vaultNonce] = [undefined, undefined];
-  let usdcMintAddress = undefined;
-  let usdcAccountAddress = undefined;
-  let [greeksAddress, _greeksNone] = [undefined, undefined];
-  let [serumAuthorityAddress, _serumAuthorityNonce] = [undefined, undefined];
-  let [openOrdersAccount, openOrdersNonce] = [undefined, undefined];
-  let [openOrdersMapAddress, openOrdersMapNonce] = [undefined, undefined];
-  let [marketNodeAddress, _marketNodeNonce] = [undefined, undefined];
-  let market = undefined;
-  let client = undefined;
-  let side = undefined;
+  let zetaGroup,
+    margin,
+    state,
+    vault,
+    usdcMint,
+    userUsdc,
+    greeks,
+    serumAuthority,
+    openOrders,
+    openOrdersMap,
+    marketNode,
+    market,
+    client,
+    side;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
-    [zetaGroupAddress, _zetaGroupNonce] = await utils.getZetaGroup(
+    [zetaGroup] = await utils.getZetaGroup(zetaProgram, underlyingMint);
+    [margin] = await utils.getMarginAccount(
       zetaProgram,
-      underlyingMint
-    );
-    [marginAddress, _marginNonce] = await utils.getMarginAccount(
-      zetaProgram,
-      zetaGroupAddress,
+      zetaGroup,
       userKeypair.publicKey
     );
-    [stateAddress, _stateNonce] = await utils.getState(zetaProgram);
-    [vaultAddress, _vaultNonce] = await utils.getVault(
-      zetaProgram,
-      zetaGroupAddress
-    );
-    usdcMintAddress = await utils.getTokenMint(
-      provider.connection,
-      vaultAddress
-    );
-    usdcAccountAddress = await utils.getAssociatedTokenAddress(
-      usdcMintAddress,
+    [state] = await utils.getState(zetaProgram);
+    [vault] = await utils.getVault(zetaProgram, zetaGroup);
+    usdcMint = await utils.getTokenMint(provider.connection, vault);
+    userUsdc = await utils.getAssociatedTokenAddress(
+      usdcMint,
       userKeypair.publicKey
     );
-    [greeksAddress, _greeksNone] = await utils.getGreeks(
-      zetaProgram,
-      zetaGroupAddress
-    );
-    [serumAuthorityAddress, _serumAuthorityNonce] =
-      await utils.getSerumAuthority(zetaProgram);
+    [greeks] = await utils.getGreeks(zetaProgram, zetaGroup);
+    [serumAuthority] = await utils.getSerumAuthority(zetaProgram);
 
     // Load the exchange object
     await Exchange.load(
@@ -163,26 +150,23 @@ describe("zeta-cpi", () => {
     // Select the trade side for when we test place and cancel order
     side = types.Side.BID;
 
-    [marketNodeAddress, _marketNodeNonce] = await utils.getMarketNode(
+    [marketNode] = await utils.getMarketNode(
       zetaProgram,
-      zetaGroupAddress,
+      zetaGroup,
       marketIndex
     );
 
-    [openOrdersAccount, openOrdersNonce] = await utils.getOpenOrders(
+    [openOrders] = await utils.getOpenOrders(
       zetaProgram,
       market.address,
       userKeypair.publicKey
     );
 
-    [openOrdersMapAddress, openOrdersMapNonce] = await utils.getOpenOrdersMap(
-      zetaProgram,
-      openOrdersAccount
-    );
+    [openOrdersMap] = await utils.getOpenOrdersMap(zetaProgram, openOrders);
 
     console.log(`User: ${userKeypair.publicKey}`);
-    console.log(`Zeta group account: ${zetaGroupAddress}`);
-    console.log(`Margin account: ${marginAddress}`);
+    console.log(`Zeta group account: ${zetaGroup}`);
+    console.log(`Margin account: ${margin}`);
 
     // Airdrop SOL
     const signature = await provider.connection.requestAirdrop(
@@ -198,8 +182,8 @@ describe("zeta-cpi", () => {
       accounts: {
         zetaProgram: zetaProgram,
         initializeMarginCpiAccounts: {
-          zetaGroup: zetaGroupAddress,
-          marginAccount: marginAddress,
+          zetaGroup: zetaGroup,
+          marginAccount: margin,
           authority: userKeypair.publicKey,
           zetaProgram: zetaProgram,
           systemProgram: anchor.web3.SystemProgram.programId,
@@ -210,11 +194,9 @@ describe("zeta-cpi", () => {
   });
 
   it("Deposit USDC into margin account via CPI", async () => {
-    let usdcAccount = await provider.connection.getAccountInfo(
-      usdcAccountAddress
-    );
+    let userUsdcAccount = await provider.connection.getAccountInfo(userUsdc);
     // Mint USDC if they don't have an acct
-    if (usdcAccount == null) {
+    if (userUsdcAccount == null) {
       console.info("USDC account doesn't exist, airdropping USDC");
 
       const body = {
@@ -226,8 +208,8 @@ describe("zeta-cpi", () => {
       console.info("USDC exists, proceeding");
     }
 
-    usdcAccount = await provider.connection.getAccountInfo(usdcAccountAddress);
-    assert.ok(usdcAccount !== undefined);
+    userUsdcAccount = await provider.connection.getAccountInfo(userUsdc);
+    assert.ok(userUsdcAccount !== undefined);
 
     // Deposit all newly minted USDC into the margin account
     const tx = await program.rpc.deposit(
@@ -236,11 +218,11 @@ describe("zeta-cpi", () => {
         accounts: {
           zetaProgram: zetaProgram,
           depositCpiAccounts: {
-            state: stateAddress,
-            zetaGroup: zetaGroupAddress,
-            marginAccount: marginAddress,
-            vault: vaultAddress,
-            userTokenAccount: usdcAccountAddress,
+            state: state,
+            zetaGroup: zetaGroup,
+            marginAccount: margin,
+            vault: vault,
+            userTokenAccount: userUsdc,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
           },
@@ -258,14 +240,14 @@ describe("zeta-cpi", () => {
         accounts: {
           zetaProgram: zetaProgram,
           withdrawCpiAccounts: {
-            state: stateAddress,
-            zetaGroup: zetaGroupAddress,
-            marginAccount: marginAddress,
-            vault: vaultAddress,
-            userTokenAccount: usdcAccountAddress,
+            state: state,
+            zetaGroup: zetaGroup,
+            marginAccount: margin,
+            vault: vault,
+            userTokenAccount: userUsdc,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
-            greeks: greeksAddress,
+            greeks: greeks,
             oracle: pythOracle,
           },
         },
@@ -279,16 +261,16 @@ describe("zeta-cpi", () => {
       accounts: {
         zetaProgram: zetaProgram,
         initializeOpenOrdersCpiAccounts: {
-          state: stateAddress,
-          zetaGroup: zetaGroupAddress,
+          state: state,
+          zetaGroup: zetaGroup,
           dexProgram: dexProgram,
           systemProgram: anchor.web3.SystemProgram.programId,
-          openOrders: openOrdersAccount,
-          marginAccount: marginAddress,
+          openOrders: openOrders,
+          marginAccount: margin,
           authority: userKeypair.publicKey,
           market: market.address,
-          serumAuthority: serumAuthorityAddress,
-          openOrdersMap: openOrdersMapAddress,
+          serumAuthority: serumAuthority,
+          openOrdersMap: openOrdersMap,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
       },
@@ -319,19 +301,19 @@ describe("zeta-cpi", () => {
         accounts: {
           zetaProgram: zetaProgram,
           placeOrderCpiAccounts: {
-            state: stateAddress,
-            zetaGroup: zetaGroupAddress,
-            marginAccount: marginAddress,
+            state: state,
+            zetaGroup: zetaGroup,
+            marginAccount: margin,
             authority: userKeypair.publicKey,
             dexProgram: dexProgram,
             tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: serumAuthorityAddress,
-            greeks: greeksAddress,
-            openOrders: openOrdersAccount,
+            serumAuthority: serumAuthority,
+            greeks: greeks,
+            openOrders: openOrders,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
             oracle: pythOracle,
-            marketNode: marketNodeAddress,
+            marketNode: marketNode,
           },
         },
       }
@@ -347,12 +329,12 @@ describe("zeta-cpi", () => {
     }
 
     const cancelAccounts = {
-      zetaGroup: zetaGroupAddress,
-      state: stateAddress,
-      marginAccount: marginAddress,
+      zetaGroup: zetaGroup,
+      state: state,
+      marginAccount: margin,
       dexProgram: dexProgram,
-      serumAuthority: serumAuthorityAddress,
-      openOrders: openOrdersAccount,
+      serumAuthority: serumAuthority,
+      openOrders: openOrders,
       market: market.address,
       bids: market.serumMarket.decoded.bids,
       asks: market.serumMarket.decoded.asks,
@@ -378,10 +360,10 @@ describe("zeta-cpi", () => {
   it("Read Zeta data", async () => {
     const tx = await program.rpc.readProgramData({
       accounts: {
-        state: stateAddress,
-        zetaGroup: zetaGroupAddress,
-        marginAccount: marginAddress,
-        greeks: greeksAddress,
+        state: state,
+        zetaGroup: zetaGroup,
+        marginAccount: margin,
+        greeks: greeks,
         oracle: pythOracle,
       },
     });

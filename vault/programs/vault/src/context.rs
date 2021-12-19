@@ -19,7 +19,7 @@ pub struct InitializeVault<'info> {
     #[account(init,
         mint::decimals = DECIMALS,
         mint::authority = vault_account,
-        seeds = [vault_name.as_bytes(), b"redeemable_mint".as_ref()],
+        seeds = [vault_name.as_bytes(), b"redeemable_mint"],
         bump = bumps.redeemable_mint,
         payer = vault_authority)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
@@ -177,6 +177,58 @@ pub struct WithdrawVaultUsdc<'info> {
     pub vault_usdc: Box<Account<'info, TokenAccount>>,
     // Program and Sysvars
     pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeZetaMarginAccount<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
+        bump = vault_account.bumps.vault_account,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub initialize_margin_cpi_accounts: InitializeMarginAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DepositZeta<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
+        bump = vault_account.bumps.vault_account,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub deposit_cpi_accounts: Deposit<'info>,
+}
+
+#[derive(Accounts)]
+pub struct WithdrawZeta<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
+        bump = vault_account.bumps.vault_account,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub withdraw_cpi_accounts: Withdraw<'info>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeZetaOpenOrders<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
+        bump = vault_account.bumps.vault_account,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub initialize_open_orders_cpi_accounts: InitializeOpenOrders<'info>,
 }
 
 #[derive(Accounts)]
