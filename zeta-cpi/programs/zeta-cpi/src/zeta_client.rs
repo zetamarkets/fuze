@@ -12,7 +12,7 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
     fn deposit(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn withdraw(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn initialize_open_orders(ctx: Context<T>, nonce: u8, _map_nonce: u8) -> ProgramResult;
-    fn place_order(ctx: Context<T>, price: u64, size: u32, side: Side) -> ProgramResult;
+    fn place_order(ctx: Context<T>, price: u64, size: u64, side: Side, client_order_id: Option<u64>) -> ProgramResult;
     fn cancel_order(ctx: Context<T>, side: Side, order_id: u128) -> ProgramResult;
 }
 
@@ -75,11 +75,12 @@ pub fn place_order<'info>(
     zeta_program: AccountInfo<'info>,
     cpi_accounts: PlaceOrder<'info>,
     price: u64,
-    size: u32,
+    size: u64,
     side: Side,
+    client_order_id: Option<u64>,
 ) -> ProgramResult {
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
-    zeta_interface::place_order(cpi_ctx, price, size, side)
+    zeta_interface::place_order(cpi_ctx, price, size, side, client_order_id)
 }
 
 pub fn cancel_order<'info>(

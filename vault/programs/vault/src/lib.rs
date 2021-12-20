@@ -33,32 +33,32 @@ pub mod vault {
     ) -> ProgramResult {
         msg!("INITIALIZE vault");
 
-        let vault_account = &mut ctx.accounts.vault_account;
+        let vault = &mut ctx.accounts.vault;
 
         let name_bytes = vault_name.as_bytes();
         let mut name_data = [b' '; 20];
         name_data[..name_bytes.len()].copy_from_slice(name_bytes);
 
-        vault_account.vault_name = name_data;
-        vault_account.bumps = bumps;
-        vault_account.vault_authority = ctx.accounts.vault_authority.key();
+        vault.vault_name = name_data;
+        vault.bumps = bumps;
+        vault.vault_authority = ctx.accounts.vault_authority.key();
 
-        vault_account.usdc_mint = ctx.accounts.usdc_mint.key();
-        vault_account.redeemable_mint = ctx.accounts.redeemable_mint.key();
-        vault_account.vault_usdc = ctx.accounts.vault_usdc.key();
+        vault.usdc_mint = ctx.accounts.usdc_mint.key();
+        vault.redeemable_mint = ctx.accounts.redeemable_mint.key();
+        vault.vault_usdc = ctx.accounts.vault_usdc.key();
 
-        vault_account.epoch_times = epoch_times;
+        vault.epoch_times = epoch_times;
 
         Ok(())
     }
 
-    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault_account))]
+    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn init_user_redeemable(ctx: Context<InitUserRedeemable>) -> ProgramResult {
         msg!("INIT USER REDEEMABLE");
         Ok(())
     }
 
-    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault_account))]
+    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn exchange_usdc_for_redeemable(
         ctx: Context<ExchangeUsdcForRedeemable>,
         amount: u64,
@@ -80,16 +80,13 @@ pub mod vault {
         token::transfer(cpi_ctx, amount)?;
 
         // Mint Redeemable to user Redeemable account.
-        let vault_name = ctx.accounts.vault_account.vault_name.as_ref();
-        let seeds = &[
-            vault_name.strip(),
-            &[ctx.accounts.vault_account.bumps.vault_account],
-        ];
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = &[vault_name.strip(), &[ctx.accounts.vault.bumps.vault]];
         let signer = &[&seeds[..]];
         let cpi_accounts = MintTo {
             mint: ctx.accounts.redeemable_mint.to_account_info(),
             to: ctx.accounts.user_redeemable.to_account_info(),
-            authority: ctx.accounts.vault_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -98,7 +95,7 @@ pub mod vault {
         Ok(())
     }
 
-    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault_account))]
+    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn exchange_redeemable_for_usdc(
         ctx: Context<ExchangeRedeemableForUsdc>,
         amount: u64,
@@ -117,18 +114,15 @@ pub mod vault {
             .checked_div(ctx.accounts.redeemable_mint.supply as u128)
             .unwrap();
 
-        let vault_name = ctx.accounts.vault_account.vault_name.as_ref();
-        let seeds = &[
-            vault_name.strip(),
-            &[ctx.accounts.vault_account.bumps.vault_account],
-        ];
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = &[vault_name.strip(), &[ctx.accounts.vault.bumps.vault]];
         let signer = &[&seeds[..]];
 
         // Burn the user's redeemable tokens.
         let cpi_accounts = Burn {
             mint: ctx.accounts.redeemable_mint.to_account_info(),
             to: ctx.accounts.user_redeemable.to_account_info(),
-            authority: ctx.accounts.vault_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -138,7 +132,7 @@ pub mod vault {
         let cpi_accounts = Transfer {
             from: ctx.accounts.vault_usdc.to_account_info(),
             to: ctx.accounts.user_usdc.to_account_info(),
-            authority: ctx.accounts.vault_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -150,7 +144,7 @@ pub mod vault {
             let cpi_accounts = CloseAccount {
                 account: ctx.accounts.user_redeemable.to_account_info(),
                 destination: ctx.accounts.user_authority.to_account_info(),
-                authority: ctx.accounts.vault_account.to_account_info(),
+                authority: ctx.accounts.vault.to_account_info(),
             };
             let cpi_program = ctx.accounts.token_program.to_account_info();
             let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -160,20 +154,17 @@ pub mod vault {
         Ok(())
     }
 
-    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault_account))]
+    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn withdraw_vault_usdc(ctx: Context<WithdrawVaultUsdc>) -> ProgramResult {
         msg!("WITHDRAW vault USDC");
         // Transfer total USDC from vault account to vault_authority account.
-        let vault_name = ctx.accounts.vault_account.vault_name.as_ref();
-        let seeds = &[
-            vault_name.strip(),
-            &[ctx.accounts.vault_account.bumps.vault_account],
-        ];
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = &[vault_name.strip(), &[ctx.accounts.vault.bumps.vault]];
         let signer = &[&seeds[..]];
         let cpi_accounts = Transfer {
             from: ctx.accounts.vault_usdc.to_account_info(),
             to: ctx.accounts.vault_authority_usdc.to_account_info(),
-            authority: ctx.accounts.vault_account.to_account_info(),
+            authority: ctx.accounts.vault.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -182,7 +173,7 @@ pub mod vault {
         Ok(())
     }
 
-    // #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    // #[access_control(auction_phase(&ctx.accounts.vault))]
     // pub fn validate_market(ctx: Context<ValidateMarket>, delta: u8) -> ProgramResult {
     //     msg!("INITIALIZE AUCTION");
     //     assert!(delta >= 0 && delta <= 100);
@@ -226,7 +217,7 @@ pub mod vault {
     //     Ok(())
     // }
 
-    // #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    // #[access_control(auction_phase(&ctx.accounts.vault))]
     // pub fn sell_put(ctx: Context<SellPut>) -> ProgramResult {
     //     msg!("AUCTION: SELL PUT");
 
@@ -246,13 +237,17 @@ pub mod vault {
     //     Ok(())
     // }
 
-    pub fn initialize_zeta_margin_account(ctx: Context<InitializeZetaMarginAccount>) -> ProgramResult {
+    pub fn initialize_zeta_margin_account(
+        ctx: Context<InitializeZetaMarginAccount>,
+    ) -> ProgramResult {
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
+            ctx.accounts.vault.vault_name.clone(),
+            ctx.accounts.vault.bumps.vault.clone(),
             ctx.accounts.initialize_margin_cpi_accounts.clone(),
         )
     }
-    
+
     pub fn deposit_zeta(ctx: Context<DepositZeta>, amount: u64) -> ProgramResult {
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
@@ -260,7 +255,7 @@ pub mod vault {
             amount,
         )
     }
-    
+
     pub fn withdraw_zeta(ctx: Context<WithdrawZeta>, amount: u64) -> ProgramResult {
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
@@ -268,7 +263,7 @@ pub mod vault {
             amount,
         )
     }
-    
+
     pub fn initialize_zeta_open_orders(ctx: Context<InitializeZetaOpenOrders>) -> ProgramResult {
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
@@ -277,12 +272,13 @@ pub mod vault {
     }
 
     // TODO: in future move this on-chain
-    #[access_control(auction_phase(&ctx.accounts.vault_account))]
+    #[access_control(auction_phase(&ctx.accounts.vault))]
     pub fn place_auction_order(
         ctx: Context<PlaceAuctionOrder>,
         price: u64,
-        size: u32,
+        size: u64,
         side: Side,
+        client_order_id: Option<u64>,
     ) -> ProgramResult {
         msg!("PLACE AUCTION ORDER");
         zeta_client::place_order(
@@ -291,9 +287,24 @@ pub mod vault {
             price,
             size,
             side,
+            client_order_id,
         )
     }
 }
+
+// #[macro_export]
+// macro_rules! vault_seeds {
+//     (
+//         zeta_group = $zeta_group:expr,
+//         bump = $bump:expr
+//     ) => {
+//         &[
+//             MARKET_INDEXES_SEED.as_bytes().as_ref(),
+//             $zeta_group.as_ref(),
+//             &[$bump],
+//         ]
+//     };
+// }
 
 #[error]
 pub enum ErrorCode {
@@ -360,42 +371,42 @@ fn validate_epoch_times(epoch_times: EpochTimes) -> ProgramResult {
 }
 
 // Asserts the vault is still accepting deposits and withdrawals.
-fn deposit_withdraw_phase(vault_account: &VaultAccount) -> ProgramResult {
+fn deposit_withdraw_phase(vault: &Vault) -> ProgramResult {
     let clock = Clock::get()?;
-    if clock.unix_timestamp <= vault_account.epoch_times.start_epoch {
+    if clock.unix_timestamp <= vault.epoch_times.start_epoch {
         return Err(ErrorCode::StartEpochTime.into());
-    } else if clock.unix_timestamp > vault_account.epoch_times.end_deposits {
+    } else if clock.unix_timestamp > vault.epoch_times.end_deposits {
         return Err(ErrorCode::EndDepositsTime.into());
     }
     Ok(())
 }
 
 // Asserts the vault is ready to hold an auction.
-fn auction_phase(vault_account: &VaultAccount) -> ProgramResult {
+fn auction_phase(vault: &Vault) -> ProgramResult {
     let clock = Clock::get()?;
-    if clock.unix_timestamp <= vault_account.epoch_times.start_auction {
+    if clock.unix_timestamp <= vault.epoch_times.start_auction {
         return Err(ErrorCode::StartAuctionTime.into());
-    } else if clock.unix_timestamp > vault_account.epoch_times.end_auction {
+    } else if clock.unix_timestamp > vault.epoch_times.end_auction {
         return Err(ErrorCode::EndAuctionTime.into());
     }
     Ok(())
 }
 
 // Asserts the vault is ready to settle on Zeta DEX.
-fn settlement_phase(vault_account: &VaultAccount) -> ProgramResult {
+fn settlement_phase(vault: &Vault) -> ProgramResult {
     let clock = Clock::get()?;
-    if clock.unix_timestamp <= vault_account.epoch_times.start_settlement {
+    if clock.unix_timestamp <= vault.epoch_times.start_settlement {
         return Err(ErrorCode::StartSettlementTime.into());
-    } else if clock.unix_timestamp > vault_account.epoch_times.end_epoch {
+    } else if clock.unix_timestamp > vault.epoch_times.end_epoch {
         return Err(ErrorCode::EndEpochTime.into());
     }
     Ok(())
 }
 
 // // Asserts the current vault epoch has ended.
-// fn epoch_over(vault_account: &VaultAccount) -> ProgramResult {
+// fn epoch_over(vault: &Vault) -> ProgramResult {
 //     let clock = Clock::get()?;
-//     if clock.unix_timestamp <= vault_account.epoch_times.end_epoch {
+//     if clock.unix_timestamp <= vault.epoch_times.end_epoch {
 //         return Err(ErrorCode::VaultNotOver.into());
 //     }
 //     Ok(())

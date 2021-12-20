@@ -10,71 +10,24 @@ import {
   Network,
   Client,
   constants,
+  Market,
 } from "@zetamarkets/sdk";
-import * as https from "https";
-import { TextEncoder } from "util";
 import * as assert from "assert";
+import { mintUsdc } from "./utils";
 
 // Airdrop amounts
 const SOL_AMOUNT = 1; // 1 SOL
 const USDC_AMOUNT = 10_000; // 10k USDC
 
-const SERVER_URL = "server.zeta.markets";
-
 // Constants for addresses
 const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 const underlyingMint = constants.MINTS["SOL"];
 const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
-const dexProgram = constants.DEX_PID;
-
-// Helper function to make the post request to server to mint devnet dummy USDC collateral
-let airdropUsdc = async (userPubkey: anchor.web3.PublicKey, amount: number) => {
-  const data = new TextEncoder().encode(
-    JSON.stringify({
-      key: userPubkey.toString(),
-      amount: amount,
-    })
-  );
-  const options = {
-    hostname: `${SERVER_URL}`,
-    port: 443,
-    path: "/faucet/USDC",
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Length": data.length,
-    },
-  };
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let body = "";
-      res.on("data", (chunk) => (body += chunk.toString()));
-      res.on("error", reject);
-      res.on("end", () => {
-        if (res.statusCode >= 200 && res.statusCode <= 299) {
-          resolve({
-            statusCode: res.statusCode,
-            headers: res.headers,
-            body: body,
-          });
-        } else {
-          reject(
-            "Request failed. status: " + res.statusCode + ", body: " + body
-          );
-        }
-      });
-    });
-    req.on("error", reject);
-    req.write(data, "binary");
-    req.end();
-  });
-};
 
 describe("zeta-cpi", () => {
   // Configure the client.
   const userKeypair = anchor.web3.Keypair.generate();
-  const url = "https://api.devnet.solana.com"; //process.env.ANCHOR_PROVIDER_URL;
+  const url = "https://api.devnet.solana.com";
   if (url === undefined) {
     throw new Error("ANCHOR_PROVIDER_URL is not defined");
   }
@@ -88,37 +41,32 @@ describe("zeta-cpi", () => {
 
   const program = anchor.workspace.ZetaCpi as anchor.Program<ZetaCpi>;
 
-  let zetaGroup,
-    margin,
-    state,
-    vault,
+  let // zetaGroup,
+    //   margin,
+    //   state,
+    //   vault,
     usdcMint,
     userUsdc,
-    greeks,
-    serumAuthority,
+    //   greeks,
+    //   serumAuthority,
     openOrders,
     openOrdersMap,
-    marketNode,
-    market,
-    client,
-    side;
+    // marketNode,
+    market: Market,
+    client: Client,
+    side: types.Side;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
-    [zetaGroup] = await utils.getZetaGroup(zetaProgram, underlyingMint);
-    [margin] = await utils.getMarginAccount(
-      zetaProgram,
-      zetaGroup,
-      userKeypair.publicKey
-    );
-    [state] = await utils.getState(zetaProgram);
-    [vault] = await utils.getVault(zetaProgram, zetaGroup);
-    usdcMint = await utils.getTokenMint(provider.connection, vault);
-    userUsdc = await utils.getAssociatedTokenAddress(
-      usdcMint,
-      userKeypair.publicKey
-    );
-    [greeks] = await utils.getGreeks(zetaProgram, zetaGroup);
-    [serumAuthority] = await utils.getSerumAuthority(zetaProgram);
+    // [zetaGroup] = await utils.getZetaGroup(zetaProgram, underlyingMint);
+    // [margin] = await utils.getMarginAccount(
+    //   zetaProgram,
+    //   zetaGroup,
+    //   userKeypair.publicKey
+    // );
+    // [state] = await utils.getState(zetaProgram);
+    // [vault] = await utils.getVault(zetaProgram, zetaGroup);
+    // [greeks] = await utils.getGreeks(zetaProgram, zetaGroup);
+    // [serumAuthority] = await utils.getSerumAuthority(zetaProgram);
 
     // Load the exchange object
     await Exchange.load(
@@ -139,6 +87,15 @@ describe("zeta-cpi", () => {
       false
     );
 
+    usdcMint = await utils.getTokenMint(
+      provider.connection,
+      Exchange.vaultAddress
+    );
+    userUsdc = await utils.getAssociatedTokenAddress(
+      usdcMint,
+      userKeypair.publicKey
+    );
+
     // Arbitrarily choosing the nearest expiry, lowest strike call (productIndex 0)
     const expiryIndex = Exchange.zetaGroup.frontExpiryIndex; // [0,2)
     const productIndex = 0; // [0,23)
@@ -150,23 +107,9 @@ describe("zeta-cpi", () => {
     // Select the trade side for when we test place and cancel order
     side = types.Side.BID;
 
-    [marketNode] = await utils.getMarketNode(
-      zetaProgram,
-      zetaGroup,
-      marketIndex
-    );
-
-    [openOrders] = await utils.getOpenOrders(
-      zetaProgram,
-      market.address,
-      userKeypair.publicKey
-    );
-
-    [openOrdersMap] = await utils.getOpenOrdersMap(zetaProgram, openOrders);
-
     console.log(`User: ${userKeypair.publicKey}`);
-    console.log(`Zeta group account: ${zetaGroup}`);
-    console.log(`Margin account: ${margin}`);
+    console.log(`Zeta group account: ${Exchange.zetaGroupAddress}`);
+    console.log(`Margin account: ${client.marginAccountAddress}`);
 
     // Airdrop SOL
     const signature = await provider.connection.requestAirdrop(
@@ -180,12 +123,12 @@ describe("zeta-cpi", () => {
     // FYI can only init this once
     const tx = await program.rpc.initializeMarginAccount({
       accounts: {
-        zetaProgram: zetaProgram,
+        zetaProgram: Exchange.programId,
         initializeMarginCpiAccounts: {
-          zetaGroup: zetaGroup,
-          marginAccount: margin,
+          zetaGroup: Exchange.zetaGroupAddress,
+          marginAccount: client.marginAccountAddress,
           authority: userKeypair.publicKey,
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
         },
       },
@@ -198,12 +141,7 @@ describe("zeta-cpi", () => {
     // Mint USDC if they don't have an acct
     if (userUsdcAccount == null) {
       console.info("USDC account doesn't exist, airdropping USDC");
-
-      const body = {
-        key: userKeypair.publicKey.toString(),
-        amount: USDC_AMOUNT,
-      };
-      let req = await airdropUsdc(userKeypair.publicKey, USDC_AMOUNT);
+      await mintUsdc(userKeypair.publicKey, USDC_AMOUNT);
     } else {
       console.info("USDC exists, proceeding");
     }
@@ -216,13 +154,14 @@ describe("zeta-cpi", () => {
       new anchor.BN(utils.convertDecimalToNativeInteger(USDC_AMOUNT)),
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           depositCpiAccounts: {
-            state: state,
-            zetaGroup: zetaGroup,
-            marginAccount: margin,
-            vault: vault,
+            state: Exchange.stateAddress,
+            zetaGroup: Exchange.zetaGroupAddress,
+            marginAccount: client.marginAccountAddress,
+            vault: Exchange.vaultAddress,
             userTokenAccount: userUsdc,
+            socializedLossAccount: Exchange.socializedLossAccountAddress,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
           },
@@ -238,17 +177,18 @@ describe("zeta-cpi", () => {
       new anchor.BN(utils.convertDecimalToNativeInteger(0.1 * USDC_AMOUNT)),
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           withdrawCpiAccounts: {
-            state: state,
-            zetaGroup: zetaGroup,
-            marginAccount: margin,
-            vault: vault,
+            state: Exchange.stateAddress,
+            zetaGroup: Exchange.zetaGroupAddress,
+            marginAccount: client.marginAccountAddress,
+            vault: Exchange.vaultAddress,
             userTokenAccount: userUsdc,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
-            greeks: greeks,
+            greeks: Exchange.greeksAddress,
             oracle: pythOracle,
+            socializedLossAccount: Exchange.socializedLossAccountAddress,
           },
         },
       }
@@ -257,19 +197,30 @@ describe("zeta-cpi", () => {
   });
 
   it("Initialize open orders account via CPI", async () => {
+    [openOrders] = await utils.getOpenOrders(
+      Exchange.programId,
+      market.address,
+      userKeypair.publicKey
+    );
+
+    [openOrdersMap] = await utils.getOpenOrdersMap(
+      Exchange.programId,
+      openOrders
+    );
+
     const tx = await program.rpc.initializeOpenOrders({
       accounts: {
-        zetaProgram: zetaProgram,
+        zetaProgram: Exchange.programId,
         initializeOpenOrdersCpiAccounts: {
-          state: state,
-          zetaGroup: zetaGroup,
-          dexProgram: dexProgram,
+          state: Exchange.stateAddress,
+          zetaGroup: Exchange.zetaGroupAddress,
+          dexProgram: constants.DEX_PID,
           systemProgram: anchor.web3.SystemProgram.programId,
           openOrders: openOrders,
-          marginAccount: margin,
+          marginAccount: client.marginAccountAddress,
           authority: userKeypair.publicKey,
           market: market.address,
-          serumAuthority: serumAuthority,
+          serumAuthority: Exchange.serumAuthority,
           openOrdersMap: openOrdersMap,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
@@ -295,25 +246,31 @@ describe("zeta-cpi", () => {
 
     const tx = await program.rpc.placeOrder(
       new anchor.BN(utils.convertDecimalToNativeInteger(1)),
-      1,
+      new anchor.BN(utils.convertDecimalToNativeLotSize(1)),
       types.toProgramSide(side),
+      null,
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           placeOrderCpiAccounts: {
-            state: state,
-            zetaGroup: zetaGroup,
-            marginAccount: margin,
+            state: Exchange.stateAddress,
+            zetaGroup: Exchange.zetaGroupAddress,
+            marginAccount: client.marginAccountAddress,
             authority: userKeypair.publicKey,
-            dexProgram: dexProgram,
+            dexProgram: constants.DEX_PID,
             tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: serumAuthority,
-            greeks: greeks,
+            serumAuthority: Exchange.serumAuthority,
+            greeks: Exchange.greeksAddress,
             openOrders: openOrders,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
             oracle: pythOracle,
-            marketNode: marketNode,
+            marketNode: Exchange.greeks.nodeKeys[market.marketIndex],
+            marketMint:
+              side == types.Side.BID
+                ? market.serumMarket.quoteMintAddress
+                : market.serumMarket.baseMintAddress,
+            mintAuthority: Exchange.mintAuthority,
           },
         },
       }
@@ -329,11 +286,11 @@ describe("zeta-cpi", () => {
     }
 
     const cancelAccounts = {
-      zetaGroup: zetaGroup,
-      state: state,
-      marginAccount: margin,
-      dexProgram: dexProgram,
-      serumAuthority: serumAuthority,
+      zetaGroup: Exchange.zetaGroupAddress,
+      state: Exchange.stateAddress,
+      marginAccount: client.marginAccountAddress,
+      dexProgram: constants.DEX_PID,
+      serumAuthority: Exchange.serumAuthority,
       openOrders: openOrders,
       market: market.address,
       bids: market.serumMarket.decoded.bids,
@@ -346,7 +303,7 @@ describe("zeta-cpi", () => {
       orders[0].orderId,
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           cancelOrderCpiAccounts: {
             authority: userKeypair.publicKey,
             cancelAccounts: cancelAccounts,
@@ -360,10 +317,10 @@ describe("zeta-cpi", () => {
   it("Read Zeta data", async () => {
     const tx = await program.rpc.readProgramData({
       accounts: {
-        state: state,
-        zetaGroup: zetaGroup,
-        marginAccount: margin,
-        greeks: greeks,
+        state: Exchange.stateAddress,
+        zetaGroup: Exchange.zetaGroupAddress,
+        marginAccount: client.marginAccountAddress,
+        greeks: Exchange.greeksAddress,
         oracle: pythOracle,
       },
     });

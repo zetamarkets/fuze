@@ -4,26 +4,6 @@ import { TextEncoder } from "util";
 
 const SERVER_URL = "server.zeta.markets";
 
-export interface IVaultBumps {
-  vault: number;
-  redeemableMint: number;
-  vaultUsdc: number;
-}
-
-export interface IEpochTimes {
-  startEpoch: anchor.BN;
-  endDeposits: anchor.BN;
-  startAuction: anchor.BN;
-  endAuction: anchor.BN;
-  startSettlement: anchor.BN;
-  endEpoch: anchor.BN;
-}
-
-export function sleep(ms) {
-  console.log("Sleeping for", ms / 1000, "seconds");
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // Helper function to make the post request to server to mint devnet dummy USDC collateral
 export async function mintUsdc(
   userPubkey: anchor.web3.PublicKey,

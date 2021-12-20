@@ -10,22 +10,22 @@ pub struct InitializeVault<'info> {
     // vault Accounts
     #[account(init,
         seeds = [vault_name.as_bytes()],
-        bump = bumps.vault_account,
+        bump = bumps.vault,
         payer = vault_authority)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     // TODO Confirm USDC mint address on mainnet or leave open as an option for other stables
     #[account(constraint = usdc_mint.decimals == DECIMALS)]
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(init,
         mint::decimals = DECIMALS,
-        mint::authority = vault_account,
+        mint::authority = vault,
         seeds = [vault_name.as_bytes(), b"redeemable_mint"],
         bump = bumps.redeemable_mint,
         payer = vault_authority)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
     #[account(init,
         token::mint = usdc_mint,
-        token::authority = vault_account,
+        token::authority = vault,
         seeds = [vault_name.as_bytes(), b"vault_usdc"],
         bump = bumps.vault_usdc,
         payer = vault_authority)]
@@ -43,19 +43,19 @@ pub struct InitUserRedeemable<'info> {
     pub user_authority: Signer<'info>,
     #[account(init,
         token::mint = redeemable_mint,
-        token::authority = vault_account,
+        token::authority = vault,
         seeds = [user_authority.key().as_ref(),
-            vault_account.vault_name.as_ref().strip(),
+            vault.vault_name.as_ref().strip(),
             b"user_redeemable"],
         bump,
         payer = user_authority)]
     pub user_redeemable: Box<Account<'info, TokenAccount>>,
     // vault Accounts
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip(), b"redeemable_mint"],
-        bump = vault_account.bumps.redeemable_mint)]
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault)]
+    pub vault: Box<Account<'info, Vault>>,
+    #[account(seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
+        bump = vault.bumps.redeemable_mint)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
     // Programs and Sysvars
     pub system_program: Program<'info, System>,
@@ -74,23 +74,23 @@ pub struct ExchangeUsdcForRedeemable<'info> {
     pub user_usdc: Box<Account<'info, TokenAccount>>,
     #[account(mut,
         seeds = [user_authority.key().as_ref(),
-            vault_account.vault_name.as_ref().strip(),
+            vault.vault_name.as_ref().strip(),
             b"user_redeemable"],
         bump)]
     pub user_redeemable: Box<Account<'info, TokenAccount>>,
     // vault Accounts
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(mut,
-        seeds = [vault_account.vault_name.as_ref().strip(), b"redeemable_mint"],
-        bump = vault_account.bumps.redeemable_mint)]
+        seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
+        bump = vault.bumps.redeemable_mint)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
     #[account(mut,
-        seeds = [vault_account.vault_name.as_ref().strip(), b"vault_usdc"],
-        bump = vault_account.bumps.vault_usdc)]
+        seeds = [vault.vault_name.as_ref().strip(), b"vault_usdc"],
+        bump = vault.bumps.vault_usdc)]
     pub vault_usdc: Box<Account<'info, TokenAccount>>,
     // Programs and Sysvars
     pub token_program: Program<'info, Token>,
@@ -103,17 +103,17 @@ pub struct InitEscrowUsdc<'info> {
     pub user_authority: Signer<'info>,
     #[account(init,
         token::mint = usdc_mint,
-        token::authority = vault_account,
+        token::authority = vault,
         seeds =  [user_authority.key().as_ref(),
-            vault_account.vault_name.as_ref().strip(),
+            vault.vault_name.as_ref().strip(),
             b"escrow_usdc"],
         bump,
         payer = user_authority)]
     pub escrow_usdc: Box<Account<'info, TokenAccount>>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     // Programs and Sysvars
     pub system_program: Program<'info, System>,
@@ -132,23 +132,23 @@ pub struct ExchangeRedeemableForUsdc<'info> {
     pub user_usdc: Box<Account<'info, TokenAccount>>,
     #[account(mut,
         seeds = [user_authority.key().as_ref(),
-            vault_account.vault_name.as_ref().strip(),
+            vault.vault_name.as_ref().strip(),
             b"user_redeemable"],
         bump)]
     pub user_redeemable: Box<Account<'info, TokenAccount>>,
     // vault Accounts
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(mut,
-        seeds = [vault_account.vault_name.as_ref().strip(), b"redeemable_mint"],
-        bump = vault_account.bumps.redeemable_mint)]
+        seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
+        bump = vault.bumps.redeemable_mint)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
     #[account(mut,
-        seeds = [vault_account.vault_name.as_ref().strip(), b"vault_usdc"],
-        bump = vault_account.bumps.vault_usdc)]
+        seeds = [vault.vault_name.as_ref().strip(), b"vault_usdc"],
+        bump = vault.bumps.vault_usdc)]
     pub vault_usdc: Box<Account<'info, TokenAccount>>,
     // Programs and Sysvars
     pub token_program: Program<'info, Token>,
@@ -164,16 +164,16 @@ pub struct WithdrawVaultUsdc<'info> {
         constraint = vault_authority_usdc.mint == usdc_mint.key())]
     pub vault_authority_usdc: Box<Account<'info, TokenAccount>>,
     // vault Accounts
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub watermelon_mint: Box<Account<'info, Mint>>,
     #[account(mut,
-        seeds = [vault_account.vault_name.as_ref().strip(), b"vault_usdc"],
-        bump = vault_account.bumps.vault_usdc)]
+        seeds = [vault.vault_name.as_ref().strip(), b"vault_usdc"],
+        bump = vault.bumps.vault_usdc)]
     pub vault_usdc: Box<Account<'info, TokenAccount>>,
     // Program and Sysvars
     pub token_program: Program<'info, Token>,
@@ -183,11 +183,11 @@ pub struct WithdrawVaultUsdc<'info> {
 pub struct InitializeZetaMarginAccount<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub vault_authority: Signer<'info>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub initialize_margin_cpi_accounts: InitializeMarginAccount<'info>,
 }
@@ -196,11 +196,11 @@ pub struct InitializeZetaMarginAccount<'info> {
 pub struct DepositZeta<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub vault_authority: Signer<'info>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub deposit_cpi_accounts: Deposit<'info>,
 }
@@ -209,11 +209,11 @@ pub struct DepositZeta<'info> {
 pub struct WithdrawZeta<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub vault_authority: Signer<'info>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub withdraw_cpi_accounts: Withdraw<'info>,
 }
@@ -222,11 +222,11 @@ pub struct WithdrawZeta<'info> {
 pub struct InitializeZetaOpenOrders<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub vault_authority: Signer<'info>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub initialize_open_orders_cpi_accounts: InitializeOpenOrders<'info>,
 }
@@ -235,18 +235,18 @@ pub struct InitializeZetaOpenOrders<'info> {
 pub struct PlaceAuctionOrder<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub vault_authority: Signer<'info>,
-    #[account(seeds = [vault_account.vault_name.as_ref().strip()],
-        bump = vault_account.bumps.vault_account,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
         has_one = vault_authority,
         has_one = usdc_mint)]
-    pub vault_account: Box<Account<'info, VaultAccount>>,
+    pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub place_order_cpi_accounts: PlaceOrder<'info>,
 }
 
 #[account]
 #[derive(Default)]
-pub struct VaultAccount {
+pub struct Vault {
     pub vault_name: [u8; 20], // Setting an arbitrary max of twenty characters in the vault name.
     pub bumps: VaultBumps,
     pub vault_authority: Pubkey,
@@ -270,7 +270,7 @@ pub struct EpochTimes {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone)]
 pub struct VaultBumps {
-    pub vault_account: u8,
+    pub vault: u8,
     pub redeemable_mint: u8,
     pub vault_usdc: u8,
 }

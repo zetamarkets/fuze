@@ -13,6 +13,7 @@ import {
   constants,
   Client,
 } from "@zetamarkets/sdk";
+import { mintUsdc } from "./utils";
 
 // TODO:
 
@@ -109,15 +110,24 @@ describe("vault", () => {
       [vaultAuthority]
     );
 
-    usdcMintAccount = await Token.createMint(
+    // usdcMintAccount = await Token.createMint(
+    //   provider.connection,
+    //   (provider.wallet as anchor.Wallet).payer,
+    //   vaultAuthority.publicKey,
+    //   null,
+    //   DECIMALS,
+    //   TOKEN_PROGRAM_ID
+    // );
+    usdcMint = await zetaUtils.getTokenMint(
       provider.connection,
-      (provider.wallet as anchor.Wallet).payer,
-      vaultAuthority.publicKey,
-      null,
-      DECIMALS,
-      TOKEN_PROGRAM_ID
+      Exchange.vaultAddress
     );
-    usdcMint = usdcMintAccount.publicKey;
+    usdcMintAccount = new Token(
+      provider.connection,
+      usdcMint,
+      TOKEN_PROGRAM_ID,
+      userKeypair // TODO: not sure this is the way to go?
+    );
     vaultAuthorityUsdc = await usdcMintAccount.createAssociatedTokenAccount(
       vaultAuthority.publicKey
     );
@@ -129,8 +139,8 @@ describe("vault", () => {
   const vaultName = "test_vault_" + Math.random().toString(16).substring(2, 8); // "sol_put_sell";
   console.log(`Vault name: ${vaultName}`);
 
-  let vaultAccount,
-    vaultAccountBump,
+  let vault: anchor.web3.PublicKey,
+    vaultBump,
     redeemableMint,
     redeemableMintAccount,
     redeemableMintBump,
@@ -142,36 +152,24 @@ describe("vault", () => {
     epochTimes: IEpochTimes;
 
   it("Initializes the vault", async () => {
-    [vaultAccount, vaultAccountBump] =
-      await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from(vaultName),
-          // vaultAuthority.publicKey.toBytes()
-        ],
-        program.programId
-      );
+    [vault, vaultBump] = await anchor.web3.PublicKey.findProgramAddress(
+      [Buffer.from(vaultName)],
+      program.programId
+    );
 
     [redeemableMint, redeemableMintBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [
-          Buffer.from(vaultName),
-          Buffer.from("redeemable_mint"),
-          // vaultAuthority.publicKey.toBytes(),
-        ],
+        [Buffer.from(vaultName), Buffer.from("redeemable_mint")],
         program.programId
       );
 
     [vaultUsdc, vaultUsdcBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from(vaultName),
-        Buffer.from("vault_usdc"),
-        // vaultAuthority.publicKey.toBytes(),
-      ],
+      [Buffer.from(vaultName), Buffer.from("vault_usdc")],
       program.programId
     );
 
     bumps = {
-      vaultAccount: vaultAccountBump,
+      vault: vaultBump,
       redeemableMint: redeemableMintBump,
       vaultUsdc: vaultUsdcBump,
     };
@@ -189,7 +187,7 @@ describe("vault", () => {
     await program.rpc.initializeVault(vaultName, bumps, epochTimes, {
       accounts: {
         vaultAuthority: vaultAuthority.publicKey,
-        vaultAccount,
+        vault,
         usdcMint,
         redeemableMint,
         vaultUsdc,
@@ -217,27 +215,26 @@ describe("vault", () => {
 
   it("Init Zeta margin for vault account via CPI", async () => {
     [vaultMargin] = await zetaUtils.getMarginAccount(
-      zetaProgram,
+      Exchange.programId,
       Exchange.zetaGroupAddress,
-      vaultAccount.publicKey
+      vault
     );
-    // vaultUsdcAccountAddress = await zetaUtils.getAssociatedTokenAddress(
-    //   usdcMint,
-    //   vaultAccount.publicKey
-    // );
 
-    // FYI can only init this once
-    const tx = await program.rpc.initializeMarginAccount({
+    const tx = await program.rpc.initializeZetaMarginAccount({
       accounts: {
-        zetaProgram: zetaProgram,
+        zetaProgram: Exchange.programId,
+        vaultAuthority: vaultAuthority.publicKey,
+        vault,
+        usdcMint,
         initializeMarginCpiAccounts: {
           zetaGroup: Exchange.zetaGroupAddress,
           marginAccount: vaultMargin,
-          authority: userKeypair.publicKey,
-          zetaProgram: zetaProgram,
+          authority: vault,
+          zetaProgram: Exchange.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
         },
       },
+      signers: [vaultAuthority],
     });
     console.log("Your transaction signature", tx);
   });
@@ -257,12 +254,13 @@ describe("vault", () => {
     );
 
     // Mint USDC to user USDC wallet
-    await usdcMintAccount.mintTo(
-      userUsdc,
-      vaultAuthority,
-      [],
-      firstDeposit.toNumber()
-    );
+    // await usdcMintAccount.mintTo(
+    //   userUsdc,
+    //   vaultAuthority,
+    //   [],
+    //   firstDeposit.toNumber()
+    // );
+    await mintUsdc(userUsdc, firstDeposit.toNumber());
 
     // Check if we inited correctly
     let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
@@ -282,7 +280,7 @@ describe("vault", () => {
         userAuthority: userKeypair.publicKey,
         userUsdc,
         userRedeemable,
-        vaultAccount,
+        vault,
         usdcMint,
         redeemableMint,
         vaultUsdc,
@@ -293,7 +291,7 @@ describe("vault", () => {
           accounts: {
             userAuthority: userKeypair.publicKey,
             userRedeemable,
-            vaultAccount,
+            vault,
             redeemableMint,
             systemProgram: anchor.web3.SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -315,7 +313,7 @@ describe("vault", () => {
 
   // 420 usdc
   const secondDeposit = new anchor.BN(420_000_000);
-  let totalvaultUsdc, secondUserKeypair, secondUserUsdc;
+  let totalVaultUsdc, secondUserKeypair, secondUserUsdc;
 
   it("Exchanges a second users USDC for redeemable tokens", async () => {
     secondUserKeypair = anchor.web3.Keypair.generate();
@@ -335,12 +333,13 @@ describe("vault", () => {
     secondUserUsdc = await usdcMintAccount.createAssociatedTokenAccount(
       secondUserKeypair.publicKey
     );
-    await usdcMintAccount.mintTo(
-      secondUserUsdc,
-      vaultAuthority,
-      [],
-      secondDeposit.toNumber()
-    );
+    // await usdcMintAccount.mintTo(
+    //   secondUserUsdc,
+    //   vaultAuthority,
+    //   [],
+    //   secondDeposit.toNumber()
+    // );
+    await mintUsdc(secondUserUsdc, firstDeposit.toNumber());
 
     // Checking the transfer went through
     let secondUserUsdcAccount = await usdcMintAccount.getAccountInfo(
@@ -362,7 +361,7 @@ describe("vault", () => {
         userAuthority: secondUserKeypair.publicKey,
         userUsdc: secondUserUsdc,
         userRedeemable: secondUserRedeemable,
-        vaultAccount,
+        vault,
         usdcMint,
         redeemableMint,
         vaultUsdc,
@@ -373,7 +372,7 @@ describe("vault", () => {
           accounts: {
             userAuthority: secondUserKeypair.publicKey,
             userRedeemable: secondUserRedeemable,
-            vaultAccount,
+            vault,
             redeemableMint,
             systemProgram: anchor.web3.SystemProgram.programId,
             tokenProgram: TOKEN_PROGRAM_ID,
@@ -384,48 +383,38 @@ describe("vault", () => {
       signers: [secondUserKeypair],
     });
 
-    totalvaultUsdc = firstDeposit.add(secondDeposit);
+    totalVaultUsdc = firstDeposit.add(secondDeposit);
     let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.ok(vaultUsdcAccount.amount.eq(totalvaultUsdc));
+    assert.ok(vaultUsdcAccount.amount.eq(totalVaultUsdc));
     let secondUserRedeemableAccount =
       await redeemableMintAccount.getAccountInfo(secondUserRedeemable);
     assert.ok(secondUserRedeemableAccount.amount.eq(secondDeposit));
   });
 
   it("Deposit USDC into vault's Zeta margin account via CPI", async () => {
-    let vaultUsdcAccount = await provider.connection.getAccountInfo(vaultUsdc);
-    // Mint USDC if they don't have an acct
-    if (vaultUsdcAccount == null) {
-      console.info("USDC account doesn't exist, airdropping USDC");
-
-      const body = {
-        key: userKeypair.publicKey.toString(),
-        amount: USDC_AMOUNT,
-      };
-      let req = await airdropUsdc(userKeypair.publicKey, USDC_AMOUNT);
-    } else {
-      console.info("USDC exists, proceeding");
-    }
-
-    vaultUsdcAccount = await provider.connection.getAccountInfo(vaultUsdc);
+    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
     assert.ok(vaultUsdcAccount !== undefined);
 
     // Deposit all newly minted USDC into the margin account
     const tx = await program.rpc.depositZeta(
-      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(USDC_AMOUNT)),
+      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(totalVaultUsdc)),
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
+          vaultAuthority: vaultAuthority.publicKey,
+          vault,
+          usdcMint,
           depositCpiAccounts: {
             state: Exchange.state,
             zetaGroup: Exchange.zetaGroup,
             marginAccount: vaultMargin,
             vault: Exchange.vaultAddress,
-            userTokenAccount: usdcAccountAddress,
+            userTokenAccount: vaultUsdc,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
           },
         },
+        signers: [vault],
       }
     );
     console.log("Your transaction signature", tx);
@@ -436,6 +425,7 @@ describe("vault", () => {
     delta: number,
     expiry: number = UNIX_WEEK
   ) {
+    assert(exchange.isInitialized);
     assert(delta >= 0 && delta <= 1);
     // Find closest expiry
     let closestExpiry = exchange.markets.expirySeries.sort((a, b) => {
@@ -451,9 +441,19 @@ describe("vault", () => {
     let closestPutDeltaIndex = greeksForClosestExpiry // get only greeks for this strike
       .reduce(
         (iMin, x, i, arr) =>
-          Math.abs(delta - zetaUtils.convertNativeBNToDecimal(x.delta, true)) <
           Math.abs(
-            delta - zetaUtils.convertNativeBNToDecimal(arr[iMin].delta, true)
+            delta -
+              zetaUtils.convertNativeBNToDecimal(
+                x.delta,
+                constants.PRICING_PRECISION
+              )
+          ) <
+          Math.abs(
+            delta -
+              zetaUtils.convertNativeBNToDecimal(
+                arr[iMin].delta,
+                constants.PRICING_PRECISION
+              )
           )
             ? i
             : iMin,
@@ -478,32 +478,48 @@ describe("vault", () => {
         market.expirySeries.expiryTs * 1000
       )}, Strike ${market.strike} (Delta ${zetaUtils.convertNativeBNToDecimal(
         greeksForClosestExpiry[closestPutDeltaIndex].delta,
-        true
+        constants.PRICING_PRECISION
       )}), Kind ${market.kind}`
     );
 
     return market;
   }
 
-  // Select instrument for vault to trade
-  // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
-  let market = getClosestMarket(Exchange, 0.05);
+  let market, openOrders, openOrdersMap;
 
   it("Initialize open orders account via CPI", async () => {
-    const tx = await program.rpc.initializeOpenOrders({
+    // Select instrument for vault to trade
+    // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
+    market = getClosestMarket(Exchange, 0.05);
+
+    [openOrders] = await zetaUtils.getOpenOrders(
+      Exchange.programId,
+      market.address,
+      userKeypair.publicKey
+    );
+
+    [openOrdersMap] = await zetaUtils.getOpenOrdersMap(
+      Exchange.programId,
+      openOrders
+    );
+
+    const tx = await program.rpc.initializeZetaOpenOrders({
       accounts: {
-        zetaProgram: zetaProgram,
+        zetaProgram: Exchange.programId,
+        vaultAuthority: vaultAuthority.publicKey,
+        vault,
+        usdcMint,
         initializeOpenOrdersCpiAccounts: {
-          state: stateAddress,
-          zetaGroup: zetaGroupAddress,
-          dexProgram: dexProgram,
+          state: Exchange.stateAddress,
+          zetaGroup: Exchange.zetaGroupAddress,
+          dexProgram: constants.DEX_PID,
           systemProgram: anchor.web3.SystemProgram.programId,
-          openOrders: openOrdersAccount,
-          marginAccount: marginAddress,
+          openOrders: openOrders,
+          marginAccount: vaultMargin,
           authority: userKeypair.publicKey,
           market: market.address,
-          serumAuthority: serumAuthorityAddress,
-          openOrdersMap: openOrdersMapAddress,
+          serumAuthority: Exchange.serumAuthority,
+          openOrdersMap: openOrdersMap,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
       },
@@ -529,12 +545,6 @@ describe("vault", () => {
     let side = types.Side.ASK;
     console.log(`${size}`);
 
-    let [openOrdersAccount] = await zetaUtils.getOpenOrders(
-      zetaProgram,
-      market.address,
-      userKeypair.publicKey
-    );
-
     const marketAccounts = {
       market: market.address,
       requestQueue: market.serumMarket.decoded.requestQueue,
@@ -555,10 +565,10 @@ describe("vault", () => {
       types.toProgramSide(side),
       {
         accounts: {
-          zetaProgram: zetaProgram,
+          zetaProgram: Exchange.programId,
           vaultAuthority: vaultAuthority.publicKey,
-          vaultAccount: vaultAccount,
-          usdcMint: usdcMint,
+          vault,
+          usdcMint,
           placeOrderCpiAccounts: {
             state: Exchange.stateAddress,
             zetaGroup: Exchange.zetaGroupAddress,
@@ -568,7 +578,7 @@ describe("vault", () => {
             tokenProgram: TOKEN_PROGRAM_ID,
             serumAuthority: Exchange.serumAuthority,
             greeks: Exchange.greeksAddress,
-            openOrders: openOrdersAccount,
+            openOrders: openOrders,
             rent: anchor.web3.SYSVAR_RENT_PUBKEY,
             marketAccounts: marketAccounts,
             oracle: pythOracle,

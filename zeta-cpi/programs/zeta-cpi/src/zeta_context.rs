@@ -24,6 +24,8 @@ pub struct Deposit<'info> {
     pub vault: AccountInfo<'info>,
     #[account(mut)]
     pub user_token_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub socialized_loss_account: AccountInfo<'info>,
     pub authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
 }
@@ -43,6 +45,8 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
+    #[account(mut)]
+    pub socialized_loss_account: AccountInfo<'info>,
 }
 
 #[derive(Accounts, Clone)]
@@ -121,6 +125,9 @@ pub struct PlaceOrder<'info> {
     pub oracle: AccountInfo<'info>,
     #[account(mut)]
     pub market_node: AccountInfo<'info>,
+    #[account(mut)]
+    pub market_mint: AccountInfo<'info>,
+    pub mint_authority: AccountInfo<'info>,
 }
 
 // Shared accounts required for cancel order
