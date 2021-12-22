@@ -42,6 +42,7 @@ pub fn initialize_margin_account<'info>(
     let vault_name_ = vault_name.as_ref();
     let vault_bump_ = &[vault_bump];
     let vault_signer_seeds = &[&[vault_name_.strip(), vault_bump_][..]];
+    // Need to do this so that anchor recognises the PDA authority as a signer
     cpi_accounts.authority.is_signer = true;
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(vault_signer_seeds);
     zeta_interface::initialize_margin_account(cpi_ctx, nonce)

@@ -220,6 +220,7 @@ describe("vault", () => {
       vault
     );
 
+    // TODO: temporary workaround, will need to avoid PDA authority until issue #350 is fixed
     const tx = await program.rpc.initializeZetaMarginAccount({
       accounts: {
         zetaProgram: Exchange.programId,
