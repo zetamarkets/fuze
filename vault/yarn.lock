@@ -241,10 +241,10 @@
   resolved "https://registry.yarnpkg.com/@ungap/promise-all-settled/-/promise-all-settled-1.1.2.tgz#aa58042711d6e3275dd37dc597e5d31e8c290a44"
   integrity sha512-sL/cEvJWAnClXw0wHk85/2L0G6Sj8UB0Ctc1TEMbKSsmpRosqhwj9gWgFRZSrBr2f9tiXISwNhCPmlfqUqyb9Q==
 
-"@zetamarkets/sdk@^0.8.6":
-  version "0.8.6"
-  resolved "https://registry.yarnpkg.com/@zetamarkets/sdk/-/sdk-0.8.6.tgz#2257bfb90b8dae2819efda0ce2b0393118a53827"
-  integrity sha512-beIJnNsyddlef9vt1N3v/A+X1tV7jeS5ElfvLDvgQHyQfMh9GWUaIHR4L+KSsdiVG7sVMKMVZq/LvUF4JXJWwA==
+"@zetamarkets/sdk@^0.9.1":
+  version "0.9.1"
+  resolved "https://registry.yarnpkg.com/@zetamarkets/sdk/-/sdk-0.9.1.tgz#daa7ffbc109706c5879b83ac685c5c695404b187"
+  integrity sha512-nhZv6QH6eX8mo6CBKO/0nYOqaKWcFjhRUKfu6iZE38h7+Ok9SD9j5bifQcyFvB4x4KEve30boNTeQ2f4pTphAQ==
   dependencies:
     "@project-serum/anchor" "0.18.2"
     "@project-serum/serum" "0.13.55"
