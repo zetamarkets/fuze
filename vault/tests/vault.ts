@@ -227,11 +227,11 @@ describe("vault", () => {
         vault,
         usdcMint,
         initializeMarginCpiAccounts: {
-          zetaGroup: Exchange.zetaGroupAddress,
           marginAccount: vaultMargin,
           authority: vault,
           zetaProgram: Exchange.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
+          zetaGroup: Exchange.zetaGroupAddress,
         },
       },
       signers: [vaultAuthority],
@@ -243,353 +243,353 @@ describe("vault", () => {
   // 40 usdc
   const firstDeposit = new anchor.BN(40_000_000);
 
-  it("Exchanges user USDC for redeemable tokens", async () => {
-    // Wait until the vault has opened.
-    if (Date.now() < epochTimes.startEpoch.toNumber() * 1000) {
-      await sleep(epochTimes.startEpoch.toNumber() * 1000 - Date.now() + 2000);
-    }
+  // it("Exchanges user USDC for redeemable tokens", async () => {
+  //   // Wait until the vault has opened.
+  //   if (Date.now() < epochTimes.startEpoch.toNumber() * 1000) {
+  //     await sleep(epochTimes.startEpoch.toNumber() * 1000 - Date.now() + 2000);
+  //   }
 
-    userUsdc = await usdcMintAccount.createAssociatedTokenAccount(
-      userKeypair.publicKey
-    );
+  //   userUsdc = await usdcMintAccount.createAssociatedTokenAccount(
+  //     userKeypair.publicKey
+  //   );
 
-    // Mint USDC to user USDC wallet
-    // await usdcMintAccount.mintTo(
-    //   userUsdc,
-    //   vaultAuthority,
-    //   [],
-    //   firstDeposit.toNumber()
-    // );
-    await mintUsdc(userUsdc, firstDeposit.toNumber());
+  //   // Mint USDC to user USDC wallet
+  //   // await usdcMintAccount.mintTo(
+  //   //   userUsdc,
+  //   //   vaultAuthority,
+  //   //   [],
+  //   //   firstDeposit.toNumber()
+  //   // );
+  //   await mintUsdc(userUsdc, firstDeposit.toNumber());
 
-    // Check if we inited correctly
-    let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
-    assert.ok(userUsdcAccount.amount.eq(firstDeposit));
+  //   // Check if we inited correctly
+  //   let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
+  //   assert.ok(userUsdcAccount.amount.eq(firstDeposit));
 
-    [userRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        userKeypair.publicKey.toBuffer(),
-        Buffer.from(vaultName),
-        Buffer.from("user_redeemable"),
-      ],
-      program.programId
-    );
+  //   [userRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
+  //     [
+  //       userKeypair.publicKey.toBuffer(),
+  //       Buffer.from(vaultName),
+  //       Buffer.from("user_redeemable"),
+  //     ],
+  //     program.programId
+  //   );
 
-    await program.rpc.exchangeUsdcForRedeemable(firstDeposit, {
-      accounts: {
-        userAuthority: userKeypair.publicKey,
-        userUsdc,
-        userRedeemable,
-        vault,
-        usdcMint,
-        redeemableMint,
-        vaultUsdc,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      instructions: [
-        program.instruction.initUserRedeemable({
-          accounts: {
-            userAuthority: userKeypair.publicKey,
-            userRedeemable,
-            vault,
-            redeemableMint,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          },
-        }),
-      ],
-      signers: [userKeypair],
-    });
+  //   await program.rpc.exchangeUsdcForRedeemable(firstDeposit, {
+  //     accounts: {
+  //       userAuthority: userKeypair.publicKey,
+  //       userUsdc,
+  //       userRedeemable,
+  //       vault,
+  //       usdcMint,
+  //       redeemableMint,
+  //       vaultUsdc,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     },
+  //     instructions: [
+  //       program.instruction.initUserRedeemable({
+  //         accounts: {
+  //           userAuthority: userKeypair.publicKey,
+  //           userRedeemable,
+  //           vault,
+  //           redeemableMint,
+  //           systemProgram: anchor.web3.SystemProgram.programId,
+  //           tokenProgram: TOKEN_PROGRAM_ID,
+  //           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+  //         },
+  //       }),
+  //     ],
+  //     signers: [userKeypair],
+  //   });
 
-    // Check that USDC is in vault and user has received their redeem tokens in return
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.ok(vaultUsdcAccount.amount.eq(firstDeposit));
-    let userRedeemableAccount = await redeemableMintAccount.getAccountInfo(
-      userRedeemable
-    );
-    assert.ok(userRedeemableAccount.amount.eq(firstDeposit));
-  });
+  //   // Check that USDC is in vault and user has received their redeem tokens in return
+  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+  //   assert.ok(vaultUsdcAccount.amount.eq(firstDeposit));
+  //   let userRedeemableAccount = await redeemableMintAccount.getAccountInfo(
+  //     userRedeemable
+  //   );
+  //   assert.ok(userRedeemableAccount.amount.eq(firstDeposit));
+  // });
 
-  // 420 usdc
-  const secondDeposit = new anchor.BN(420_000_000);
-  let totalVaultUsdc, secondUserKeypair, secondUserUsdc;
+  // // 420 usdc
+  // const secondDeposit = new anchor.BN(420_000_000);
+  // let totalVaultUsdc, secondUserKeypair, secondUserUsdc;
 
-  it("Exchanges a second users USDC for redeemable tokens", async () => {
-    secondUserKeypair = anchor.web3.Keypair.generate();
+  // it("Exchanges a second users USDC for redeemable tokens", async () => {
+  //   secondUserKeypair = anchor.web3.Keypair.generate();
 
-    const transferTransaction = new anchor.web3.Transaction().add(
-      anchor.web3.SystemProgram.transfer({
-        fromPubkey: vaultAuthority.publicKey,
-        lamports: 0.1 * anchor.web3.LAMPORTS_PER_SOL, // 0.1 SOL
-        toPubkey: secondUserKeypair.publicKey,
-      })
-    );
-    await anchor.web3.sendAndConfirmTransaction(
-      provider.connection,
-      transferTransaction,
-      [vaultAuthority]
-    );
-    secondUserUsdc = await usdcMintAccount.createAssociatedTokenAccount(
-      secondUserKeypair.publicKey
-    );
-    // await usdcMintAccount.mintTo(
-    //   secondUserUsdc,
-    //   vaultAuthority,
-    //   [],
-    //   secondDeposit.toNumber()
-    // );
-    await mintUsdc(secondUserUsdc, firstDeposit.toNumber());
+  //   const transferTransaction = new anchor.web3.Transaction().add(
+  //     anchor.web3.SystemProgram.transfer({
+  //       fromPubkey: vaultAuthority.publicKey,
+  //       lamports: 0.1 * anchor.web3.LAMPORTS_PER_SOL, // 0.1 SOL
+  //       toPubkey: secondUserKeypair.publicKey,
+  //     })
+  //   );
+  //   await anchor.web3.sendAndConfirmTransaction(
+  //     provider.connection,
+  //     transferTransaction,
+  //     [vaultAuthority]
+  //   );
+  //   secondUserUsdc = await usdcMintAccount.createAssociatedTokenAccount(
+  //     secondUserKeypair.publicKey
+  //   );
+  //   // await usdcMintAccount.mintTo(
+  //   //   secondUserUsdc,
+  //   //   vaultAuthority,
+  //   //   [],
+  //   //   secondDeposit.toNumber()
+  //   // );
+  //   await mintUsdc(secondUserUsdc, firstDeposit.toNumber());
 
-    // Checking the transfer went through
-    let secondUserUsdcAccount = await usdcMintAccount.getAccountInfo(
-      secondUserUsdc
-    );
-    assert.ok(secondUserUsdcAccount.amount.eq(secondDeposit));
+  //   // Checking the transfer went through
+  //   let secondUserUsdcAccount = await usdcMintAccount.getAccountInfo(
+  //     secondUserUsdc
+  //   );
+  //   assert.ok(secondUserUsdcAccount.amount.eq(secondDeposit));
 
-    [secondUserRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        secondUserKeypair.publicKey.toBuffer(),
-        Buffer.from(vaultName),
-        Buffer.from("user_redeemable"),
-      ],
-      program.programId
-    );
+  //   [secondUserRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
+  //     [
+  //       secondUserKeypair.publicKey.toBuffer(),
+  //       Buffer.from(vaultName),
+  //       Buffer.from("user_redeemable"),
+  //     ],
+  //     program.programId
+  //   );
 
-    await program.rpc.exchangeUsdcForRedeemable(secondDeposit, {
-      accounts: {
-        userAuthority: secondUserKeypair.publicKey,
-        userUsdc: secondUserUsdc,
-        userRedeemable: secondUserRedeemable,
-        vault,
-        usdcMint,
-        redeemableMint,
-        vaultUsdc,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      instructions: [
-        program.instruction.initUserRedeemable({
-          accounts: {
-            userAuthority: secondUserKeypair.publicKey,
-            userRedeemable: secondUserRedeemable,
-            vault,
-            redeemableMint,
-            systemProgram: anchor.web3.SystemProgram.programId,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-          },
-        }),
-      ],
-      signers: [secondUserKeypair],
-    });
+  //   await program.rpc.exchangeUsdcForRedeemable(secondDeposit, {
+  //     accounts: {
+  //       userAuthority: secondUserKeypair.publicKey,
+  //       userUsdc: secondUserUsdc,
+  //       userRedeemable: secondUserRedeemable,
+  //       vault,
+  //       usdcMint,
+  //       redeemableMint,
+  //       vaultUsdc,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     },
+  //     instructions: [
+  //       program.instruction.initUserRedeemable({
+  //         accounts: {
+  //           userAuthority: secondUserKeypair.publicKey,
+  //           userRedeemable: secondUserRedeemable,
+  //           vault,
+  //           redeemableMint,
+  //           systemProgram: anchor.web3.SystemProgram.programId,
+  //           tokenProgram: TOKEN_PROGRAM_ID,
+  //           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+  //         },
+  //       }),
+  //     ],
+  //     signers: [secondUserKeypair],
+  //   });
 
-    totalVaultUsdc = firstDeposit.add(secondDeposit);
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.ok(vaultUsdcAccount.amount.eq(totalVaultUsdc));
-    let secondUserRedeemableAccount =
-      await redeemableMintAccount.getAccountInfo(secondUserRedeemable);
-    assert.ok(secondUserRedeemableAccount.amount.eq(secondDeposit));
-  });
+  //   totalVaultUsdc = firstDeposit.add(secondDeposit);
+  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+  //   assert.ok(vaultUsdcAccount.amount.eq(totalVaultUsdc));
+  //   let secondUserRedeemableAccount =
+  //     await redeemableMintAccount.getAccountInfo(secondUserRedeemable);
+  //   assert.ok(secondUserRedeemableAccount.amount.eq(secondDeposit));
+  // });
 
-  it("Deposit USDC into vault's Zeta margin account via CPI", async () => {
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.ok(vaultUsdcAccount !== undefined);
+  // it("Deposit USDC into vault's Zeta margin account via CPI", async () => {
+  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+  //   assert.ok(vaultUsdcAccount !== undefined);
 
-    // Deposit all newly minted USDC into the margin account
-    const tx = await program.rpc.depositZeta(
-      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(totalVaultUsdc)),
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
-          vault,
-          usdcMint,
-          depositCpiAccounts: {
-            state: Exchange.state,
-            zetaGroup: Exchange.zetaGroup,
-            marginAccount: vaultMargin,
-            vault: Exchange.vaultAddress,
-            userTokenAccount: vaultUsdc,
-            authority: userKeypair.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-          },
-        },
-        signers: [vault],
-      }
-    );
-    console.log("Your transaction signature", tx);
-  });
+  //   // Deposit all newly minted USDC into the margin account
+  //   const tx = await program.rpc.depositZeta(
+  //     new anchor.BN(zetaUtils.convertDecimalToNativeInteger(totalVaultUsdc)),
+  //     {
+  //       accounts: {
+  //         zetaProgram: Exchange.programId,
+  //         vaultAuthority: vaultAuthority.publicKey,
+  //         vault,
+  //         usdcMint,
+  //         depositCpiAccounts: {
+  //           state: Exchange.state,
+  //           zetaGroup: Exchange.zetaGroup,
+  //           marginAccount: vaultMargin,
+  //           vault: Exchange.vaultAddress,
+  //           userTokenAccount: vaultUsdc,
+  //           authority: userKeypair.publicKey,
+  //           tokenProgram: TOKEN_PROGRAM_ID,
+  //         },
+  //       },
+  //       signers: [vault],
+  //     }
+  //   );
+  //   console.log("Your transaction signature", tx);
+  // });
 
-  function getClosestMarket(
-    exchange: typeof Exchange, // TODO: change this to Market[] when sdk 0.8.3 released
-    delta: number,
-    expiry: number = UNIX_WEEK
-  ) {
-    assert(exchange.isInitialized);
-    assert(delta >= 0 && delta <= 1);
-    // Find closest expiry
-    let closestExpiry = exchange.markets.expirySeries.sort((a, b) => {
-      return Math.abs(expiry - a.expiryTs) - Math.abs(expiry - b.expiryTs);
-    })[0];
+  // function getClosestMarket(
+  //   exchange: typeof Exchange, // TODO: change this to Market[] when sdk 0.8.3 released
+  //   delta: number,
+  //   expiry: number = UNIX_WEEK
+  // ) {
+  //   assert(exchange.isInitialized);
+  //   assert(delta >= 0 && delta <= 1);
+  //   // Find closest expiry
+  //   let closestExpiry = exchange.markets.expirySeries.sort((a, b) => {
+  //     return Math.abs(expiry - a.expiryTs) - Math.abs(expiry - b.expiryTs);
+  //   })[0];
 
-    // Find closest strike to 5-delta
-    let head = closestExpiry.expiryIndex * constants.NUM_STRIKES;
-    let greeksForClosestExpiry = exchange.greeks.productGreeks.slice(
-      head,
-      head + constants.NUM_STRIKES
-    );
-    let closestPutDeltaIndex = greeksForClosestExpiry // get only greeks for this strike
-      .reduce(
-        (iMin, x, i, arr) =>
-          Math.abs(
-            delta -
-              zetaUtils.convertNativeBNToDecimal(
-                x.delta,
-                constants.PRICING_PRECISION
-              )
-          ) <
-          Math.abs(
-            delta -
-              zetaUtils.convertNativeBNToDecimal(
-                arr[iMin].delta,
-                constants.PRICING_PRECISION
-              )
-          )
-            ? i
-            : iMin,
-        0
-      );
-    // console.log(
-    //   greeksForClosestExpiry.map((x) =>
-    //     zetaUtils.convertNativeBNToDecimal(x.delta, true)
-    //   )
-    // );
-    assert(
-      closestPutDeltaIndex >= 0 && closestPutDeltaIndex < constants.NUM_STRIKES
-    );
+  //   // Find closest strike to 5-delta
+  //   let head = closestExpiry.expiryIndex * constants.NUM_STRIKES;
+  //   let greeksForClosestExpiry = exchange.greeks.productGreeks.slice(
+  //     head,
+  //     head + constants.NUM_STRIKES
+  //   );
+  //   let closestPutDeltaIndex = greeksForClosestExpiry // get only greeks for this strike
+  //     .reduce(
+  //       (iMin, x, i, arr) =>
+  //         Math.abs(
+  //           delta -
+  //             zetaUtils.convertNativeBNToDecimal(
+  //               x.delta,
+  //               constants.PRICING_PRECISION
+  //             )
+  //         ) <
+  //         Math.abs(
+  //           delta -
+  //             zetaUtils.convertNativeBNToDecimal(
+  //               arr[iMin].delta,
+  //               constants.PRICING_PRECISION
+  //             )
+  //         )
+  //           ? i
+  //           : iMin,
+  //       0
+  //     );
+  //   // console.log(
+  //   //   greeksForClosestExpiry.map((x) =>
+  //   //     zetaUtils.convertNativeBNToDecimal(x.delta, true)
+  //   //   )
+  //   // );
+  //   assert(
+  //     closestPutDeltaIndex >= 0 && closestPutDeltaIndex < constants.NUM_STRIKES
+  //   );
 
-    let market = exchange.markets.getMarketsByExpiryIndex(
-      closestExpiry.expiryIndex
-    )[constants.NUM_STRIKES + closestPutDeltaIndex];
-    assert(market !== undefined);
+  //   let market = exchange.markets.getMarketsByExpiryIndex(
+  //     closestExpiry.expiryIndex
+  //   )[constants.NUM_STRIKES + closestPutDeltaIndex];
+  //   assert(market !== undefined);
 
-    console.log(
-      `Closest market found: Expiry ${new Date(
-        market.expirySeries.expiryTs * 1000
-      )}, Strike ${market.strike} (Delta ${zetaUtils.convertNativeBNToDecimal(
-        greeksForClosestExpiry[closestPutDeltaIndex].delta,
-        constants.PRICING_PRECISION
-      )}), Kind ${market.kind}`
-    );
+  //   console.log(
+  //     `Closest market found: Expiry ${new Date(
+  //       market.expirySeries.expiryTs * 1000
+  //     )}, Strike ${market.strike} (Delta ${zetaUtils.convertNativeBNToDecimal(
+  //       greeksForClosestExpiry[closestPutDeltaIndex].delta,
+  //       constants.PRICING_PRECISION
+  //     )}), Kind ${market.kind}`
+  //   );
 
-    return market;
-  }
+  //   return market;
+  // }
 
-  let market, openOrders, openOrdersMap;
+  // let market, openOrders, openOrdersMap;
 
-  it("Initialize open orders account via CPI", async () => {
-    // Select instrument for vault to trade
-    // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
-    market = getClosestMarket(Exchange, 0.05);
+  // it("Initialize open orders account via CPI", async () => {
+  //   // Select instrument for vault to trade
+  //   // For puposes of this put selling vault we choose the market closest to 1w expiry and 5-delta strike
+  //   market = getClosestMarket(Exchange, 0.05);
 
-    [openOrders] = await zetaUtils.getOpenOrders(
-      Exchange.programId,
-      market.address,
-      userKeypair.publicKey
-    );
+  //   [openOrders] = await zetaUtils.getOpenOrders(
+  //     Exchange.programId,
+  //     market.address,
+  //     userKeypair.publicKey
+  //   );
 
-    [openOrdersMap] = await zetaUtils.getOpenOrdersMap(
-      Exchange.programId,
-      openOrders
-    );
+  //   [openOrdersMap] = await zetaUtils.getOpenOrdersMap(
+  //     Exchange.programId,
+  //     openOrders
+  //   );
 
-    const tx = await program.rpc.initializeZetaOpenOrders({
-      accounts: {
-        zetaProgram: Exchange.programId,
-        vaultAuthority: vaultAuthority.publicKey,
-        vault,
-        usdcMint,
-        initializeOpenOrdersCpiAccounts: {
-          state: Exchange.stateAddress,
-          zetaGroup: Exchange.zetaGroupAddress,
-          dexProgram: constants.DEX_PID,
-          systemProgram: anchor.web3.SystemProgram.programId,
-          openOrders: openOrders,
-          marginAccount: vaultMargin,
-          authority: userKeypair.publicKey,
-          market: market.address,
-          serumAuthority: Exchange.serumAuthority,
-          openOrdersMap: openOrdersMap,
-          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-        },
-      },
-    });
-    console.log("Your transaction signature", tx);
-  });
+  //   const tx = await program.rpc.initializeZetaOpenOrders({
+  //     accounts: {
+  //       zetaProgram: Exchange.programId,
+  //       vaultAuthority: vaultAuthority.publicKey,
+  //       vault,
+  //       usdcMint,
+  //       initializeOpenOrdersCpiAccounts: {
+  //         state: Exchange.stateAddress,
+  //         zetaGroup: Exchange.zetaGroupAddress,
+  //         dexProgram: constants.DEX_PID,
+  //         systemProgram: anchor.web3.SystemProgram.programId,
+  //         openOrders: openOrders,
+  //         marginAccount: vaultMargin,
+  //         authority: userKeypair.publicKey,
+  //         market: market.address,
+  //         serumAuthority: Exchange.serumAuthority,
+  //         openOrdersMap: openOrdersMap,
+  //         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+  //       },
+  //     },
+  //   });
+  //   console.log("Your transaction signature", tx);
+  // });
 
-  it("Place auction put sell order on Zeta DEX", async () => {
-    // Wait until the vault has opened.
-    if (Date.now() < epochTimes.startAuction.toNumber() * 1000) {
-      await sleep(
-        epochTimes.startAuction.toNumber() * 1000 - Date.now() + 3000
-      );
-    }
-    // Determine sizing of trade
-    // size = total_vault_usdc / K
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    let strike = new anchor.BN(market.strike);
-    let scale = new anchor.BN(Math.pow(10, DECIMALS));
-    let size = vaultUsdcAccount.amount.div(strike).div(scale).toNumber();
-    // Price - arbitrary rn
-    let price = 1;
-    let side = types.Side.ASK;
-    console.log(`${size}`);
+  // it("Place auction put sell order on Zeta DEX", async () => {
+  //   // Wait until the vault has opened.
+  //   if (Date.now() < epochTimes.startAuction.toNumber() * 1000) {
+  //     await sleep(
+  //       epochTimes.startAuction.toNumber() * 1000 - Date.now() + 3000
+  //     );
+  //   }
+  //   // Determine sizing of trade
+  //   // size = total_vault_usdc / K
+  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+  //   let strike = new anchor.BN(market.strike);
+  //   let scale = new anchor.BN(Math.pow(10, DECIMALS));
+  //   let size = vaultUsdcAccount.amount.div(strike).div(scale).toNumber();
+  //   // Price - arbitrary rn
+  //   let price = 1;
+  //   let side = types.Side.ASK;
+  //   console.log(`${size}`);
 
-    const marketAccounts = {
-      market: market.address,
-      requestQueue: market.serumMarket.decoded.requestQueue,
-      eventQueue: market.serumMarket.decoded.eventQueue,
-      bids: market.serumMarket.decoded.bids,
-      asks: market.serumMarket.decoded.asks,
-      coinVault: market.serumMarket.decoded.baseVault,
-      pcVault: market.serumMarket.decoded.quoteVault,
-      orderPayerTokenAccount:
-        side == types.Side.BID ? market.quoteVault : market.baseVault,
-      coinWallet: market.baseVault,
-      pcWallet: market.quoteVault,
-    };
+  //   const marketAccounts = {
+  //     market: market.address,
+  //     requestQueue: market.serumMarket.decoded.requestQueue,
+  //     eventQueue: market.serumMarket.decoded.eventQueue,
+  //     bids: market.serumMarket.decoded.bids,
+  //     asks: market.serumMarket.decoded.asks,
+  //     coinVault: market.serumMarket.decoded.baseVault,
+  //     pcVault: market.serumMarket.decoded.quoteVault,
+  //     orderPayerTokenAccount:
+  //       side == types.Side.BID ? market.quoteVault : market.baseVault,
+  //     coinWallet: market.baseVault,
+  //     pcWallet: market.quoteVault,
+  //   };
 
-    const tx = await program.rpc.placeAuctionOrder(
-      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(price)),
-      size,
-      types.toProgramSide(side),
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
-          vault,
-          usdcMint,
-          placeOrderCpiAccounts: {
-            state: Exchange.stateAddress,
-            zetaGroup: Exchange.zetaGroupAddress,
-            marginAccount: client.marginAccountAddress,
-            authority: vaultAuthority.publicKey,
-            dexProgram: constants.DEX_PID,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: Exchange.serumAuthority,
-            greeks: Exchange.greeksAddress,
-            openOrders: openOrders,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-            marketAccounts: marketAccounts,
-            oracle: pythOracle,
-            marketNode: Exchange.greeks.nodeKeys[market.marketIndex],
-          },
-        },
-        signers: [vaultAuthority],
-      }
-    );
-    console.log("Your transaction signature", tx);
-  });
+  //   const tx = await program.rpc.placeAuctionOrder(
+  //     new anchor.BN(zetaUtils.convertDecimalToNativeInteger(price)),
+  //     size,
+  //     types.toProgramSide(side),
+  //     {
+  //       accounts: {
+  //         zetaProgram: Exchange.programId,
+  //         vaultAuthority: vaultAuthority.publicKey,
+  //         vault,
+  //         usdcMint,
+  //         placeOrderCpiAccounts: {
+  //           state: Exchange.stateAddress,
+  //           zetaGroup: Exchange.zetaGroupAddress,
+  //           marginAccount: client.marginAccountAddress,
+  //           authority: vaultAuthority.publicKey,
+  //           dexProgram: constants.DEX_PID,
+  //           tokenProgram: TOKEN_PROGRAM_ID,
+  //           serumAuthority: Exchange.serumAuthority,
+  //           greeks: Exchange.greeksAddress,
+  //           openOrders: openOrders,
+  //           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+  //           marketAccounts: marketAccounts,
+  //           oracle: pythOracle,
+  //           marketNode: Exchange.greeks.nodeKeys[market.marketIndex],
+  //         },
+  //       },
+  //       signers: [vaultAuthority],
+  //     }
+  //   );
+  //   console.log("Your transaction signature", tx);
+  // });
 
   // TODO: MM buys on auction
 
@@ -734,6 +734,6 @@ describe("vault", () => {
   // Closes the account subscriptions so the test won't hang.
   it("BOILERPLATE: Close websockets.", async () => {
     await Exchange.close();
-    await client.close();
+    // await client.close();
   });
 });

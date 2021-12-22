@@ -26,7 +26,7 @@ pub fn initialize_margin_account<'info>(
     zeta_program: AccountInfo<'info>,
     vault_name: [u8; 20],
     vault_bump: u8,
-    cpi_accounts: InitializeMarginAccount<'info>,
+    mut cpi_accounts: InitializeMarginAccount<'info>,
 ) -> ProgramResult {
     let (_pda, nonce) = Pubkey::find_program_address(
         &[
@@ -36,10 +36,14 @@ pub fn initialize_margin_account<'info>(
         ],
         &zeta_program.key.clone(),
     );
+    msg!("vault_name {:?}", vault_name);
+    msg!("vault_name (stripped) {:?}", vault_name.as_ref().strip());
+    msg!("vault_bump {:?}", vault_bump);
     let vault_name_ = vault_name.as_ref();
     let vault_bump_ = &[vault_bump];
-    let vault_signer_seeds = &[&[vault_name_, vault_bump_][..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts); //.with_signer(vault_signer_seeds);
+    let vault_signer_seeds = &[&[vault_name_.strip(), vault_bump_][..]];
+    cpi_accounts.authority.is_signer = true;
+    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(vault_signer_seeds);
     zeta_interface::initialize_margin_account(cpi_ctx, nonce)
 }
 
