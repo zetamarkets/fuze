@@ -56,60 +56,50 @@ pub fn get_initial_margin_per_lot(
     margin_parameters: &MarginParameters,
 ) -> Result<u64> {
     let initial_margin: u128 = match product {
-        // 15% of Spot
         Kind::Future => (spot as u128)
             .checked_mul(margin_parameters.future_margin_initial.into())
             .unwrap()
             .checked_div(NATIVE_PRECISION_DENOMINATOR)
             .unwrap(),
-        Kind::Call | Kind::Put => {
-            match side {
-                Side::Bid => {
-                    // min(100% * mark price, 15% of spot)
-                    // Place holder calcs in place for 100% * mark price
-                    (spot as u128)
-                        .checked_mul(margin_parameters.option_spot_percentage_long_initial.into())
+        Kind::Call | Kind::Put => match side {
+            Side::Bid => (spot as u128)
+                .checked_mul(margin_parameters.option_spot_percentage_long_initial.into())
+                .unwrap()
+                .checked_div(NATIVE_PRECISION_DENOMINATOR)
+                .unwrap()
+                .min(
+                    (mark as u128)
+                        .checked_mul(margin_parameters.option_mark_percentage_long_initial.into())
                         .unwrap()
                         .checked_div(NATIVE_PRECISION_DENOMINATOR)
-                        .unwrap()
-                        .min(
-                            (mark as u128)
-                                .checked_mul(
-                                    margin_parameters.option_mark_percentage_long_initial.into(),
-                                )
-                                .unwrap()
-                                .checked_div(NATIVE_PRECISION_DENOMINATOR)
-                                .unwrap(),
-                        )
-                }
-                Side::Ask => {
-                    let otm_amount: u128 = get_otm_amount(spot, strike, product)?.into();
-                    // max(25% - OTM Amount/spot, 10%)
-                    let otm_pct = otm_amount
-                        .checked_mul(NATIVE_PRECISION_DENOMINATOR)
-                        .unwrap()
-                        .checked_div(spot.into())
-                        .unwrap();
+                        .unwrap(),
+                ),
+            Side::Ask => {
+                let otm_amount: u128 = get_otm_amount(spot, strike, product)?.into();
+                let otm_pct = otm_amount
+                    .checked_mul(NATIVE_PRECISION_DENOMINATOR)
+                    .unwrap()
+                    .checked_div(spot.into())
+                    .unwrap();
 
-                    let dynamic_margin_pct =
-                        (margin_parameters.option_base_percentage_short_initial as u128)
-                            .checked_sub(otm_pct)
-                            .unwrap_or(0);
+                let dynamic_margin_pct = (margin_parameters.option_dynamic_percentage_short_initial
+                    as u128)
+                    .checked_sub(otm_pct)
+                    .unwrap_or(0);
 
-                    let margin_pct = dynamic_margin_pct.max(
-                        margin_parameters
-                            .option_spot_percentage_short_initial
-                            .into(),
-                    );
-                    margin_pct
-                        .checked_mul(spot.into())
-                        .unwrap()
-                        .checked_div(NATIVE_PRECISION_DENOMINATOR)
-                        .unwrap()
-                }
-                Side::Uninitialized => unreachable!(),
+                let margin_pct = dynamic_margin_pct.max(
+                    margin_parameters
+                        .option_spot_percentage_short_initial
+                        .into(),
+                );
+                margin_pct
+                    .checked_mul(spot.into())
+                    .unwrap()
+                    .checked_div(NATIVE_PRECISION_DENOMINATOR)
+                    .unwrap()
             }
-        }
+            Side::Uninitialized => unreachable!(),
+        },
         _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
     };
     Ok(u64::try_from(initial_margin).unwrap())
@@ -125,7 +115,6 @@ pub fn get_maintenance_margin_per_lot(
     margin_parameters: &MarginParameters,
 ) -> Result<u64> {
     let maintenance_margin: u128 = match product {
-        // 7.5% of Spot
         Kind::Future => (spot as u128)
             .checked_mul(margin_parameters.future_margin_maintenance.into())
             .unwrap()
@@ -133,8 +122,6 @@ pub fn get_maintenance_margin_per_lot(
             .unwrap(),
         Kind::Call | Kind::Put => {
             if long {
-                // min(100% * mark price, 7.5% of spot)
-                // Place holder calcs for 100% * mark price
                 (spot as u128)
                     .checked_mul(
                         margin_parameters
@@ -157,7 +144,6 @@ pub fn get_maintenance_margin_per_lot(
                     )
             } else {
                 let otm_amount: u128 = get_otm_amount(spot, strike, product)?.into();
-                // max((12.5% - OTM Amount/spot)*spot, 5% * spot)
                 let otm_pct = otm_amount
                     .checked_mul(NATIVE_PRECISION_DENOMINATOR)
                     .unwrap()
@@ -165,16 +151,15 @@ pub fn get_maintenance_margin_per_lot(
                     .unwrap();
 
                 let dynamic_margin_pct: u128 =
-                    (margin_parameters.option_spot_percentage_short_maintenance as u128)
+                    (margin_parameters.option_dynamic_percentage_short_maintenance as u128)
                         .checked_sub(otm_pct)
                         .unwrap_or(0);
 
                 let margin_pct = dynamic_margin_pct.max(
                     margin_parameters
-                        .option_base_percentage_short_maintenance
+                        .option_spot_percentage_short_maintenance
                         .into(),
                 );
-
                 margin_pct
                     .checked_mul(spot.into())
                     .unwrap()

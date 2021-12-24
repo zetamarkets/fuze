@@ -151,13 +151,13 @@ pub struct MarginParameters {
     pub option_mark_percentage_long_initial: u64,
     pub option_spot_percentage_long_initial: u64,
     pub option_spot_percentage_short_initial: u64,
-    pub option_base_percentage_short_initial: u64,
+    pub option_dynamic_percentage_short_initial: u64,
 
     // Options maintenance
     pub option_mark_percentage_long_maintenance: u64,
     pub option_spot_percentage_long_maintenance: u64,
     pub option_spot_percentage_short_maintenance: u64,
-    pub option_base_percentage_short_maintenance: u64,
+    pub option_dynamic_percentage_short_maintenance: u64,
 } // 80 bytes.
 
 impl ZetaGroup {
