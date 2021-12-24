@@ -2,7 +2,7 @@ use crate::zeta_context::*;
 use crate::*;
 
 #[derive(Accounts)]
-#[instruction(vault_name: String, bumps: VaultBumps)]
+#[instruction(vault_name: String, vault_lamports: u64, bumps: VaultBumps)]
 pub struct InitializeVault<'info> {
     // vault Authority accounts
     #[account(mut)]
@@ -13,19 +13,24 @@ pub struct InitializeVault<'info> {
         bump = bumps.vault,
         payer = vault_authority)]
     pub vault: Box<Account<'info, Vault>>,
+    // This is the PDA that holds SOL to pay for the margin account
+    #[account(mut,
+        seeds = [vault_name.as_bytes(), b"payer"],
+        bump = bumps.vault_payer)]
+    pub vault_payer: AccountInfo<'info>,
     // TODO Confirm USDC mint address on mainnet or leave open as an option for other stables
     #[account(constraint = usdc_mint.decimals == DECIMALS)]
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(init,
         mint::decimals = DECIMALS,
-        mint::authority = vault,
+        mint::authority = vault_payer,
         seeds = [vault_name.as_bytes(), b"redeemable_mint"],
         bump = bumps.redeemable_mint,
         payer = vault_authority)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
     #[account(init,
         token::mint = usdc_mint,
-        token::authority = vault,
+        token::authority = vault_payer,
         seeds = [vault_name.as_bytes(), b"vault_usdc"],
         bump = bumps.vault_usdc,
         payer = vault_authority)]
@@ -43,7 +48,7 @@ pub struct InitUserRedeemable<'info> {
     pub user_authority: Signer<'info>,
     #[account(init,
         token::mint = redeemable_mint,
-        token::authority = vault,
+        token::authority = vault_payer,
         seeds = [user_authority.key().as_ref(),
             vault.vault_name.as_ref().strip(),
             b"user_redeemable"],
@@ -54,6 +59,9 @@ pub struct InitUserRedeemable<'info> {
     #[account(seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault)]
     pub vault: Box<Account<'info, Vault>>,
+    #[account(seeds = [vault.vault_name.as_ref().strip(), b"payer"],
+        bump = vault.bumps.vault_payer)]
+    pub vault_payer: AccountInfo<'info>,
     #[account(seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
         bump = vault.bumps.redeemable_mint)]
     pub redeemable_mint: Box<Account<'info, Mint>>,
@@ -83,6 +91,9 @@ pub struct ExchangeUsdcForRedeemable<'info> {
         bump = vault.bumps.vault,
         has_one = usdc_mint)]
     pub vault: Box<Account<'info, Vault>>,
+    #[account(seeds = [vault.vault_name.as_ref().strip(), b"payer"],
+        bump = vault.bumps.vault_payer)]
+    pub vault_payer: AccountInfo<'info>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(mut,
         seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
@@ -258,6 +269,10 @@ pub struct Vault {
     pub epoch_times: EpochTimes,
 }
 
+// #[account]
+// #[derive(Default)]
+// pub struct VaultPayer {}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone, Copy)]
 pub struct EpochTimes {
     pub start_epoch: i64,      // Friday W1 10am UTC
@@ -271,6 +286,7 @@ pub struct EpochTimes {
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone)]
 pub struct VaultBumps {
     pub vault: u8,
+    pub vault_payer: u8,
     pub redeemable_mint: u8,
     pub vault_usdc: u8,
 }

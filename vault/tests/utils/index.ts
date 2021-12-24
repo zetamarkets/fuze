@@ -9,6 +9,7 @@ const SERVER_URL = "server.zeta.markets";
 
 export interface IVaultBumps {
   vault: number;
+  vaultPayer: number;
   redeemableMint: number;
   vaultUsdc: number;
 }

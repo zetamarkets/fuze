@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, CloseAccount, Mint, MintTo, Token, TokenAccount, Transfer};
 use rust_decimal::prelude::*;
 use std::ops::Deref;
+use anchor_lang::solana_program::{system_instruction, program::{invoke, invoke_signed}};
 
 pub mod context;
 pub mod pyth_client;
@@ -22,12 +23,15 @@ declare_id!("E1LM1zGDvJsEkbFJfLV2dyS83dfSAvbbfNG2YxSvuTz6");
 
 #[program]
 pub mod vault {
+    use anchor_lang::solana_program::system_program;
+
     use super::*;
 
     #[access_control(validate_epoch_times(epoch_times))]
     pub fn initialize_vault(
         ctx: Context<InitializeVault>,
         vault_name: String,
+        vault_lamports: u64,
         bumps: VaultBumps,
         epoch_times: EpochTimes,
     ) -> ProgramResult {
@@ -48,6 +52,21 @@ pub mod vault {
         vault.vault_usdc = ctx.accounts.vault_usdc.key();
 
         vault.epoch_times = epoch_times;
+
+        // Transfer initial lamport balance to vault payer
+        msg!("Transferring {} lamports from `vault_authority` to `vault_payer`", vault_lamports);
+        invoke(
+            &system_instruction::transfer(
+                &ctx.accounts.vault_authority.key(),
+                &ctx.accounts.vault_payer.key(),
+                vault_lamports,
+            ),
+            &[
+                ctx.accounts.vault_authority.to_account_info(),
+                ctx.accounts.vault_payer.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
 
         Ok(())
     }
@@ -81,12 +100,12 @@ pub mod vault {
 
         // Mint Redeemable to user Redeemable account.
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = &[vault_name.strip(), &[ctx.accounts.vault.bumps.vault]];
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         let signer = &[&seeds[..]];
         let cpi_accounts = MintTo {
             mint: ctx.accounts.redeemable_mint.to_account_info(),
             to: ctx.accounts.user_redeemable.to_account_info(),
-            authority: ctx.accounts.vault.to_account_info(),
+            authority: ctx.accounts.vault_payer.to_account_info(),
         };
         let cpi_program = ctx.accounts.token_program.to_account_info();
         let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
@@ -240,34 +259,44 @@ pub mod vault {
     pub fn initialize_zeta_margin_account(
         ctx: Context<InitializeZetaMarginAccount>,
     ) -> ProgramResult {
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
-            ctx.accounts.vault.vault_name.clone(),
-            ctx.accounts.vault.bumps.vault.clone(),
             ctx.accounts.initialize_margin_cpi_accounts.clone(),
+            seeds,
         )
     }
 
     pub fn deposit_zeta(ctx: Context<DepositZeta>, amount: u64) -> ProgramResult {
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.deposit_cpi_accounts.clone(),
+            seeds,
             amount,
         )
     }
 
     pub fn withdraw_zeta(ctx: Context<WithdrawZeta>, amount: u64) -> ProgramResult {
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.withdraw_cpi_accounts.clone(),
+            seeds,
             amount,
         )
     }
 
     pub fn initialize_zeta_open_orders(ctx: Context<InitializeZetaOpenOrders>) -> ProgramResult {
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_open_orders_cpi_accounts.clone(),
+            seeds
         )
     }
 
@@ -281,9 +310,12 @@ pub mod vault {
         client_order_id: Option<u64>,
     ) -> ProgramResult {
         msg!("PLACE AUCTION ORDER");
+        let vault_name = ctx.accounts.vault.vault_name.as_ref();
+        let seeds = vault_payer_seeds!(vault_name = vault_name, bump = ctx.accounts.vault.bumps.vault_payer);
         zeta_client::place_order(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.place_order_cpi_accounts.clone(),
+            seeds,
             price,
             size,
             side,
@@ -292,19 +324,19 @@ pub mod vault {
     }
 }
 
-// #[macro_export]
-// macro_rules! vault_seeds {
-//     (
-//         zeta_group = $zeta_group:expr,
-//         bump = $bump:expr
-//     ) => {
-//         &[
-//             MARKET_INDEXES_SEED.as_bytes().as_ref(),
-//             $zeta_group.as_ref(),
-//             &[$bump],
-//         ]
-//     };
-// }
+#[macro_export]
+macro_rules! vault_payer_seeds {
+    (
+        vault_name = $vault_name:expr,
+        bump = $bump:expr
+    ) => {
+        &[
+            $vault_name.strip(),
+            b"payer",
+            &[$bump],
+        ]
+    };
+}
 
 #[error]
 pub enum ErrorCode {

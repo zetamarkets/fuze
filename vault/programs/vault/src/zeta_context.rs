@@ -26,7 +26,7 @@ pub struct Deposit<'info> {
     pub user_token_account: AccountInfo<'info>,
     #[account(mut)]
     pub socialized_loss_account: AccountInfo<'info>,
-    pub authority: Signer<'info>,
+    pub authority: AccountInfo<'info>,
     pub token_program: Program<'info, Token>,
 }
 
@@ -41,7 +41,7 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub user_token_account: AccountInfo<'info>,
     pub token_program: Program<'info, Token>,
-    pub authority: Signer<'info>,
+    pub authority: AccountInfo<'info>,
     #[account(mut)]
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
@@ -61,7 +61,7 @@ pub struct InitializeOpenOrders<'info> {
     pub margin_account: AccountInfo<'info>,
     // Marked mutable since it pays
     #[account(mut)]
-    pub authority: Signer<'info>,
+    pub authority: AccountInfo<'info>,
     pub market: AccountInfo<'info>,
     pub serum_authority: AccountInfo<'info>,
     #[account(mut)]
@@ -112,7 +112,7 @@ pub struct PlaceOrder<'info> {
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
     pub margin_account: AccountInfo<'info>,
-    pub authority: Signer<'info>,
+    pub authority: AccountInfo<'info>,
     pub dex_program: AccountInfo<'info>,
     pub token_program: Program<'info, Token>,
     pub serum_authority: AccountInfo<'info>,
