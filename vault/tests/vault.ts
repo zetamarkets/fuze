@@ -11,13 +11,8 @@ import {
   utils as zetaUtils,
   types,
   constants,
-  Client,
 } from "@zetamarkets/sdk";
 import { mintUsdc, getClosestMarket } from "./utils";
-
-// TODO: make separate PDA for paying (non-data acct)
-
-// const DECIMALS = 6;
 
 describe("vault", () => {
   const vaultAuthority = anchor.web3.Keypair.generate();
@@ -26,7 +21,7 @@ describe("vault", () => {
   console.log(userKeypair.publicKey.toString());
 
   // Configure the client to use the local cluster.
-  const url = "https://zeta.devnet.rpcpool.com"; // "https://api.devnet.solana.com";
+  const url = "https://api.devnet.solana.com";
   if (url === undefined) {
     throw new Error("ANCHOR_PROVIDER_URL is not defined");
   }
@@ -55,7 +50,7 @@ describe("vault", () => {
   let usdcMintAccount: Token;
   let usdcMint: anchor.web3.PublicKey;
   let vaultAuthorityUsdc: anchor.web3.PublicKey;
-  let vaultMargin, client: Client;
+  let vaultMargin;
 
   it("Initializes the state of the world", async () => {
     // Load Zeta SDK exchange object which has all the info one might need
@@ -68,14 +63,6 @@ describe("vault", () => {
       0
     );
 
-    // client = await Client.load(
-    //   provider.connection,
-    //   new anchor.Wallet(vaultAuthority),
-    //   zetaUtils.defaultCommitment(),
-    //   undefined,
-    //   false
-    // );
-
     // Airdrop some SOL to the vault authority
     await publicConnection.confirmTransaction(
       await publicConnection.requestAirdrop(
@@ -85,16 +72,6 @@ describe("vault", () => {
       "confirmed"
     );
     console.log("Airdrop completed");
-
-    // Send some SOL to the user
-    // await publicConnection.confirmTransaction(
-    //   await publicConnection.requestAirdrop(
-    //     userKeypair.publicKey,
-    //     0.1 * anchor.web3.LAMPORTS_PER_SOL // 1 SOL
-    //   ),
-    //   "confirmed"
-    // );
-    // console.log("Airdrop 2");
 
     const transferTransaction = new anchor.web3.Transaction().add(
       anchor.web3.SystemProgram.transfer({
@@ -109,14 +86,6 @@ describe("vault", () => {
       [vaultAuthority]
     );
 
-    // usdcMintAccount = await Token.createMint(
-    //   provider.connection,
-    //   (provider.wallet as anchor.Wallet).payer,
-    //   vaultAuthority.publicKey,
-    //   null,
-    //   DECIMALS,
-    //   TOKEN_PROGRAM_ID
-    // );
     usdcMint = await zetaUtils.getTokenMint(
       provider.connection,
       Exchange.vaultAddress
@@ -186,11 +155,11 @@ describe("vault", () => {
 
     const nowBn = new anchor.BN(Date.now() / 1000);
     epochTimes = {
-      startEpoch: nowBn.add(new anchor.BN(2)),
-      endDeposits: nowBn.add(new anchor.BN(12)),
-      startAuction: nowBn.add(new anchor.BN(14)),
-      endAuction: nowBn.add(new anchor.BN(20)),
-      startSettlement: nowBn.add(new anchor.BN(22)),
+      startEpoch: nowBn.add(new anchor.BN(4)),
+      endDeposits: nowBn.add(new anchor.BN(18)),
+      startAuction: nowBn.add(new anchor.BN(20)),
+      endAuction: nowBn.add(new anchor.BN(22)),
+      startSettlement: nowBn.add(new anchor.BN(24)),
       endEpoch: nowBn.add(new anchor.BN(25)),
     };
 
@@ -261,7 +230,7 @@ describe("vault", () => {
   });
 
   let userUsdc;
-  const firstDeposit = 40; // 40 usdc
+  const firstDeposit = 40;
 
   it("Exchanges user USDC for redeemable tokens", async () => {
     // Wait until the vault has opened.
@@ -341,7 +310,7 @@ describe("vault", () => {
     );
   });
 
-  const secondDeposit = 420; // 420 usdc
+  const secondDeposit = 420;
   let totalVaultUsdc, secondUserKeypair, secondUserUsdc;
 
   it("Exchanges a second users USDC for redeemable tokens", async () => {
@@ -430,10 +399,6 @@ describe("vault", () => {
   });
 
   it("Deposit USDC into vault's Zeta margin account via CPI", async () => {
-    console.log(vaultUsdc.toString());
-    console.log(vaultPayer.toString());
-    console.log();
-
     // Deposit all vault USDC into its Zeta margin acct
     const tx = await program.rpc.depositZeta(
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(totalVaultUsdc)),
@@ -444,7 +409,6 @@ describe("vault", () => {
           vault,
           usdcMint,
           depositCpiAccounts: {
-            state: Exchange.stateAddress,
             zetaGroup: Exchange.zetaGroupAddress,
             marginAccount: vaultMargin,
             vault: Exchange.vaultAddress,
@@ -452,12 +416,21 @@ describe("vault", () => {
             socializedLossAccount: Exchange.socializedLossAccountAddress,
             authority: vaultPayer,
             tokenProgram: TOKEN_PROGRAM_ID,
+            state: Exchange.stateAddress,
+            greeks: Exchange.greeksAddress,
           },
         },
         signers: [vaultAuthority],
       }
     );
     console.log("Your transaction signature", tx);
+    let vaultMarginAccount = await Exchange.program.account.marginAccount.fetch(
+      vaultMargin
+    );
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(vaultMarginAccount.balance),
+      totalVaultUsdc
+    );
   });
 
   let market, openOrders, openOrdersMap;
@@ -510,19 +483,23 @@ describe("vault", () => {
     // Wait until the vault has opened.
     if (Date.now() < epochTimes.startAuction.toNumber() * 1000) {
       await sleep(
-        epochTimes.startAuction.toNumber() * 1000 - Date.now() + 3000
+        epochTimes.startAuction.toNumber() * 1000 - Date.now() + 2000
       );
     }
     // Determine sizing of trade
     // size = total_vault_usdc / K
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+    let vaultMarginAccount = await Exchange.program.account.marginAccount.fetch(
+      vaultMargin
+    );
     let strike = new anchor.BN(market.strike);
     let scale = new anchor.BN(Math.pow(10, constants.PLATFORM_PRECISION));
-    size = vaultUsdcAccount.amount.div(strike).div(scale).toNumber();
-    // Price - arbitrary rn
-    price = 1;
+    size = vaultMarginAccount.balance.div(strike).div(scale).toNumber();
+
+    // Price - arbitrary rn basically don't want to get traded against
+    price = 1000;
     side = types.Side.ASK;
-    console.log(`${size}`);
+    console.log(`Selling Put on Zeta at \$${price}x${size}`);
+    assert.ok(size > 0);
 
     const marketAccounts = {
       market: market.address,
@@ -576,59 +553,46 @@ describe("vault", () => {
     console.log("Your transaction signature", tx);
   });
 
+  // End auction + settlement
   // TODO: MM buys on auction
 
-  it("MM buys up auction in full size on Zeta DEX", async () => {
-    // Market maker takes the other side of the trade
-    const marketMakerKeypair = anchor.web3.Keypair.generate();
+  it("Cancel auction on Zeta DEX (in place of taker + settlement)", async () => {
+    // Wait until the vault has opened.
+    if (Date.now() < epochTimes.startSettlement.toNumber() * 1000) {
+      await sleep(
+        epochTimes.startSettlement.toNumber() * 1000 - Date.now() + 2000
+      );
+    }
 
-    const marketAccounts = {
+    await market.updateOrderbook();
+    let orders = market.getOrdersForAccount(openOrders);
+    assert(orders.length > 0);
+
+    const cancelAccounts = {
+      zetaGroup: Exchange.zetaGroupAddress,
+      state: Exchange.stateAddress,
+      marginAccount: vaultMargin,
+      dexProgram: constants.DEX_PID,
+      serumAuthority: Exchange.serumAuthority,
+      openOrders: openOrders,
       market: market.address,
-      requestQueue: market.serumMarket.decoded.requestQueue,
-      eventQueue: market.serumMarket.decoded.eventQueue,
       bids: market.serumMarket.decoded.bids,
       asks: market.serumMarket.decoded.asks,
-      coinVault: market.serumMarket.decoded.baseVault,
-      pcVault: market.serumMarket.decoded.quoteVault,
-      orderPayerTokenAccount:
-        side == types.Side.BID ? market.quoteVault : market.baseVault,
-      coinWallet: market.baseVault,
-      pcWallet: market.quoteVault,
+      eventQueue: market.serumMarket.decoded.eventQueue,
     };
 
-    // Place an order taking the other side
-    const tx = await program.rpc.placeAuctionOrder(
-      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(price)),
-      new anchor.BN(zetaUtils.convertDecimalToNativeLotSize(size)),
-      types.toProgramSide(
-        side == types.Side.BID ? types.Side.ASK : types.Side.BID
-      ),
-      null,
+    const tx = await program.rpc.cancelAuctionOrder(
+      types.toProgramSide(side),
+      orders[0].orderId,
       {
         accounts: {
           zetaProgram: Exchange.programId,
           vaultAuthority: vaultAuthority.publicKey,
           vault,
           usdcMint,
-          placeOrderCpiAccounts: {
-            state: Exchange.stateAddress,
-            zetaGroup: Exchange.zetaGroupAddress,
-            marginAccount: vaultMargin,
+          cancelOrderCpiAccounts: {
             authority: vaultPayer,
-            dexProgram: constants.DEX_PID,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: Exchange.serumAuthority,
-            greeks: Exchange.greeksAddress,
-            openOrders: openOrders,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-            marketAccounts: marketAccounts,
-            oracle: pythOracle,
-            marketNode: Exchange.greeks.nodeKeys[market.marketIndex],
-            marketMint:
-              side == types.Side.BID
-                ? market.serumMarket.quoteMintAddress
-                : market.serumMarket.baseMintAddress,
-            mintAuthority: Exchange.mintAuthority,
+            cancelAccounts: cancelAccounts,
           },
         },
         signers: [vaultAuthority],
@@ -637,147 +601,147 @@ describe("vault", () => {
     console.log("Your transaction signature", tx);
   });
 
+  it("Withdraw USDC into vault's Zeta margin account via CPI", async () => {
+    let vaultMarginAccount = await Exchange.program.account.marginAccount.fetch(
+      vaultMargin
+    );
+    // Withdraw all vault USDC from its Zeta margin acct
+    const tx = await program.rpc.withdrawZeta(
+      new anchor.BN(vaultMarginAccount.balance),
+      {
+        accounts: {
+          zetaProgram: Exchange.programId,
+          vaultAuthority: vaultAuthority.publicKey,
+          vault,
+          usdcMint,
+          withdrawCpiAccounts: {
+            state: Exchange.stateAddress,
+            zetaGroup: Exchange.zetaGroupAddress,
+            vault: Exchange.vaultAddress,
+            marginAccount: vaultMargin,
+            userTokenAccount: vaultUsdc,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            authority: vaultPayer,
+            greeks: Exchange.greeksAddress,
+            oracle: pythOracle,
+            socializedLossAccount: Exchange.socializedLossAccountAddress,
+          },
+        },
+        signers: [vaultAuthority],
+      }
+    );
+    console.log("Your transaction signature", tx);
+    vaultMarginAccount = await Exchange.program.account.marginAccount.fetch(
+      vaultMargin
+    );
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(vaultMarginAccount.balance),
+      0
+    );
+    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(vaultUsdcAccount.amount),
+      totalVaultUsdc
+    );
+  });
+
+  // Epoch end
+
+  it("Roll over vault into next epoch", async () => {
+    if (Date.now() < epochTimes.endEpoch.toNumber() * 1000) {
+      await sleep(epochTimes.endEpoch.toNumber() * 1000 - Date.now() + 3000);
+    }
+    const nowBn = new anchor.BN(Date.now() / 1000);
+    epochTimes = {
+      startEpoch: nowBn.add(new anchor.BN(4)),
+      endDeposits: nowBn.add(new anchor.BN(18)),
+      startAuction: nowBn.add(new anchor.BN(20)),
+      endAuction: nowBn.add(new anchor.BN(22)),
+      startSettlement: nowBn.add(new anchor.BN(24)),
+      endEpoch: nowBn.add(new anchor.BN(25)),
+    };
+
+    await program.rpc.rolloverVault(vaultName, bumps, epochTimes, {
+      accounts: {
+        vaultAuthority: vaultAuthority.publicKey,
+        vault,
+      },
+      signers: [vaultAuthority],
+    });
+
+    let vaultAccount = await program.account.vault.fetch(vault);
+    assert.deepEqual(vaultAccount.epochTimes, epochTimes);
+  });
+
   // Withdraw Phase
 
-  const firstWithdrawal = new anchor.BN(2_000_000);
+  const firstWithdrawal = 2;
 
-  // it("Exchanges user Redeemable tokens for USDC", async () => {
-  //   await program.rpc.exchangeRedeemableForUsdc(firstWithdrawal, {
-  //     accounts: {
-  //       userAuthority: userKeypair.publicKey,
-  //       userUsdc,
-  //       userRedeemable,
-  //       vaultAccount,
-  //       usdcMint,
-  //       redeemableMint,
-  //       vaultUsdc,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //     signers: [userKeypair],
-  //   });
+  it("Exchanges user Redeemable tokens for USDC", async () => {
+    if (Date.now() < epochTimes.startEpoch.toNumber() * 1000) {
+      await sleep(epochTimes.startEpoch.toNumber() * 1000 - Date.now() + 3000);
+    }
+    await program.rpc.exchangeRedeemableForUsdc(
+      new anchor.BN(zetaUtils.convertDecimalToNativeInteger(firstWithdrawal)),
+      {
+        accounts: {
+          userAuthority: userKeypair.publicKey,
+          userUsdc,
+          userRedeemable,
+          vault,
+          vaultPayer,
+          usdcMint,
+          redeemableMint,
+          vaultUsdc,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        },
+        signers: [userKeypair],
+      }
+    );
 
-  //   totalvaultUsdc = totalvaultUsdc.sub(firstWithdrawal);
-  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-  //   assert.ok(vaultUsdcAccount.amount.eq(totalvaultUsdc));
-  //   let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
-  //   assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
-  // });
+    totalVaultUsdc = totalVaultUsdc - firstWithdrawal;
+    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(vaultUsdcAccount.amount),
+      totalVaultUsdc
+    );
+    let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(userUsdcAccount.amount),
+      firstWithdrawal
+    );
+  });
 
-  // it("Exchanges user Redeemable tokens for watermelon", async () => {
-  //   // Wait until the vault has ended.
-  //   if (Date.now() < epochTimes.endvault.toNumber() * 1000) {
-  //     await sleep(epochTimes.endvault.toNumber() * 1000 - Date.now() + 3000);
-  //   }
+  it("Withdraws total USDC from vault account", async () => {
+    await program.rpc.withdrawVaultUsdc({
+      accounts: {
+        vaultAuthority: vaultAuthority.publicKey,
+        vaultAuthorityUsdc,
+        vault,
+        vaultPayer,
+        usdcMint,
+        vaultUsdc,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      },
+      signers: [vaultAuthority],
+    });
 
-  //   let firstUserRedeemable = firstDeposit.sub(firstWithdrawal);
-  //   let userWatermelon =
-  //     await watermelonMintAccount.createAssociatedTokenAccount(
-  //       userKeypair.publicKey
-  //     );
-
-  //   await program.rpc.exchangeRedeemableForWatermelon(firstUserRedeemable, {
-  //     accounts: {
-  //       payer: provider.wallet.publicKey,
-  //       userAuthority: userKeypair.publicKey,
-  //       userWatermelon,
-  //       userRedeemable,
-  //       vaultAccount,
-  //       watermelonMint,
-  //       redeemableMint,
-  //       vaultWatermelon,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //     // signers: [userKeypair],
-  //   });
-
-  //   let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-  //     vaultWatermelon
-  //   );
-  //   let redeemedWatermelon = firstUserRedeemable
-  //     .mul(watermelonvaultAmount)
-  //     .div(totalvaultUsdc);
-  //   let remainingWatermelon = watermelonvaultAmount.sub(redeemedWatermelon);
-  //   assert.ok(vaultWatermelonAccount.amount.eq(remainingWatermelon));
-  //   let userWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-  //     userWatermelon
-  //   );
-  //   assert.ok(userWatermelonAccount.amount.eq(redeemedWatermelon));
-  // });
-
-  // it("Exchanges second user's Redeemable tokens for watermelon", async () => {
-  //   let secondUserWatermelon =
-  //     await watermelonMintAccount.createAssociatedTokenAccount(
-  //       secondUserKeypair.publicKey
-  //     );
-
-  //   await program.rpc.exchangeRedeemableForWatermelon(secondDeposit, {
-  //     accounts: {
-  //       payer: provider.wallet.publicKey,
-  //       userAuthority: secondUserKeypair.publicKey,
-  //       userWatermelon: secondUserWatermelon,
-  //       userRedeemable: secondUserRedeemable,
-  //       vaultAccount,
-  //       watermelonMint,
-  //       redeemableMint,
-  //       vaultWatermelon,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //     // signers: []
-  //   });
-
-  //   let vaultWatermelonAccount = await watermelonMintAccount.getAccountInfo(
-  //     vaultWatermelon
-  //   );
-  //   assert.ok(vaultWatermelonAccount.amount.eq(new anchor.BN(0)));
-  // });
-
-  // it("Withdraws total USDC from vault account", async () => {
-  //   await program.rpc.withdrawvaultUsdc({
-  //     accounts: {
-  //       vaultAuthority: vaultAuthority.publicKey,
-  //       vaultAuthorityUsdc,
-  //       vaultAccount,
-  //       usdcMint,
-  //       watermelonMint,
-  //       vaultUsdc,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //     signers: [vaultAuthority],
-  //   });
-
-  //   let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-  //   assert.ok(vaultUsdcAccount.amount.eq(new anchor.BN(0)));
-  //   let vaultAuthorityUsdcAccount = await usdcMintAccount.getAccountInfo(
-  //     vaultAuthorityUsdc
-  //   );
-  //   assert.ok(vaultAuthorityUsdcAccount.amount.eq(totalvaultUsdc));
-  // });
-
-  // it("Withdraws USDC from the escrow account after waiting period is over", async () => {
-  //   // Wait until the escrow period is over.
-  //   if (Date.now() < epochTimes.endEscrow.toNumber() * 1000 + 1000) {
-  //     await sleep(epochTimes.endEscrow.toNumber() * 1000 - Date.now() + 4000);
-  //   }
-
-  //   await program.rpc.withdrawFromEscrow(firstWithdrawal, {
-  //     accounts: {
-  //       payer: provider.wallet.publicKey,
-  //       userAuthority: userKeypair.publicKey,
-  //       userUsdc,
-  //       escrowUsdc,
-  //       vaultAccount,
-  //       usdcMint,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     },
-  //   });
-
-  //   let userUsdcAccount = await usdcMintAccount.getAccountInfo(userUsdc);
-  //   assert.ok(userUsdcAccount.amount.eq(firstWithdrawal));
-  // });
+    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
+    assert.equal(
+      zetaUtils.convertNativeBNToDecimal(vaultUsdcAccount.amount),
+      0
+    );
+    let vaultAuthorityUsdcAccount = await usdcMintAccount.getAccountInfo(
+      vaultAuthorityUsdc
+    );
+    assert.ok(
+      zetaUtils.convertNativeBNToDecimal(vaultAuthorityUsdcAccount.amount),
+      totalVaultUsdc
+    );
+  });
 
   // Closes the account subscriptions so the test won't hang.
   it("BOILERPLATE: Close websockets.", async () => {
     await Exchange.close();
-    // await client.close();
   });
 });

@@ -152,6 +152,9 @@ pub struct ExchangeRedeemableForUsdc<'info> {
         bump = vault.bumps.vault,
         has_one = usdc_mint)]
     pub vault: Box<Account<'info, Vault>>,
+    #[account(seeds = [vault.vault_name.as_ref().strip(), b"payer"],
+        bump = vault.bumps.vault_payer)]
+    pub vault_payer: AccountInfo<'info>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(mut,
         seeds = [vault.vault_name.as_ref().strip(), b"redeemable_mint"],
@@ -180,8 +183,10 @@ pub struct WithdrawVaultUsdc<'info> {
         has_one = vault_authority,
         has_one = usdc_mint)]
     pub vault: Box<Account<'info, Vault>>,
+    #[account(seeds = [vault.vault_name.as_ref().strip(), b"payer"],
+        bump = vault.bumps.vault_payer)]
+    pub vault_payer: AccountInfo<'info>,
     pub usdc_mint: Box<Account<'info, Mint>>,
-    pub watermelon_mint: Box<Account<'info, Mint>>,
     #[account(mut,
         seeds = [vault.vault_name.as_ref().strip(), b"vault_usdc"],
         bump = vault.bumps.vault_usdc)]
@@ -253,6 +258,32 @@ pub struct PlaceAuctionOrder<'info> {
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
     pub place_order_cpi_accounts: PlaceOrder<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CancelAuctionOrder<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub vault_authority: Signer<'info>,
+    #[account(seeds = [vault.vault_name.as_ref().strip()],
+        bump = vault.bumps.vault,
+        has_one = vault_authority,
+        has_one = usdc_mint)]
+    pub vault: Box<Account<'info, Vault>>,
+    pub usdc_mint: Box<Account<'info, Mint>>,
+    pub cancel_order_cpi_accounts: CancelOrder<'info>,
+}
+
+#[derive(Accounts)]
+#[instruction(vault_name: String, bumps: VaultBumps)]
+pub struct RolloverVault<'info> {
+    // vault Authority accounts
+    #[account(mut)]
+    pub vault_authority: Signer<'info>,
+    // vault Accounts
+    #[account(mut,
+        seeds = [vault_name.as_bytes()],
+        bump = bumps.vault)]
+    pub vault: Box<Account<'info, Vault>>,
 }
 
 #[account]

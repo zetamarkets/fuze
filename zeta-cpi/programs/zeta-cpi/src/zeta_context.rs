@@ -28,6 +28,8 @@ pub struct Deposit<'info> {
     pub socialized_loss_account: AccountInfo<'info>,
     pub authority: Signer<'info>,
     pub token_program: Program<'info, Token>,
+    pub state: AccountInfo<'info>,
+    pub greeks: AccountInfo<'info>,
 }
 
 #[derive(Accounts, Clone)]

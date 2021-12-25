@@ -114,11 +114,6 @@ export function getClosestMarket(
           : iMin,
       0
     );
-  // console.log(
-  //   greeksForClosestExpiry.map((x) =>
-  //     zetaUtils.convertNativeBNToDecimal(x.delta, true)
-  //   )
-  // );
   assert(
     closestPutDeltaIndex >= 0 && closestPutDeltaIndex < constants.NUM_STRIKES
   );

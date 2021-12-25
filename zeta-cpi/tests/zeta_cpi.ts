@@ -41,33 +41,15 @@ describe("zeta-cpi", () => {
 
   const program = anchor.workspace.ZetaCpi as anchor.Program<ZetaCpi>;
 
-  let // zetaGroup,
-    //   margin,
-    //   state,
-    //   vault,
-    usdcMint,
+  let usdcMint,
     userUsdc,
-    //   greeks,
-    //   serumAuthority,
     openOrders,
     openOrdersMap,
-    // marketNode,
     market: Market,
     client: Client,
     side: types.Side;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
-    // [zetaGroup] = await utils.getZetaGroup(zetaProgram, underlyingMint);
-    // [margin] = await utils.getMarginAccount(
-    //   zetaProgram,
-    //   zetaGroup,
-    //   userKeypair.publicKey
-    // );
-    // [state] = await utils.getState(zetaProgram);
-    // [vault] = await utils.getVault(zetaProgram, zetaGroup);
-    // [greeks] = await utils.getGreeks(zetaProgram, zetaGroup);
-    // [serumAuthority] = await utils.getSerumAuthority(zetaProgram);
-
     // Load the exchange object
     await Exchange.load(
       zetaProgram,
@@ -156,7 +138,6 @@ describe("zeta-cpi", () => {
         accounts: {
           zetaProgram: Exchange.programId,
           depositCpiAccounts: {
-            state: Exchange.stateAddress,
             zetaGroup: Exchange.zetaGroupAddress,
             marginAccount: client.marginAccountAddress,
             vault: Exchange.vaultAddress,
@@ -164,6 +145,8 @@ describe("zeta-cpi", () => {
             socializedLossAccount: Exchange.socializedLossAccountAddress,
             authority: userKeypair.publicKey,
             tokenProgram: TOKEN_PROGRAM_ID,
+            state: Exchange.stateAddress,
+            greeks: Exchange.greeksAddress,
           },
         },
       }

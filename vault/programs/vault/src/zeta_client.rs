@@ -38,7 +38,7 @@ pub fn initialize_margin_account<'info>(
     // Need to do this so that anchor recognises the PDA authority as a signer
     cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(signer);
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::initialize_margin_account(cpi_ctx, nonce)
 }
 
@@ -50,7 +50,7 @@ pub fn deposit<'info>(
 ) -> ProgramResult {
     cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(signer);
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::deposit(cpi_ctx, amount)
 }
 
@@ -62,14 +62,14 @@ pub fn withdraw<'info>(
 ) -> ProgramResult {
     cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(signer);
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::withdraw(cpi_ctx, amount)
 }
 
 pub fn initialize_open_orders<'info>(
     zeta_program: AccountInfo<'info>,
     mut cpi_accounts: InitializeOpenOrders<'info>,
-    seeds: &[&[u8]]
+    seeds: &[&[u8]],
 ) -> ProgramResult {
     let (_, nonce) = Pubkey::find_program_address(
         &[
@@ -86,7 +86,7 @@ pub fn initialize_open_orders<'info>(
     );
     cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(signer);
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::initialize_open_orders(cpi_ctx, nonce, map_nonce)
 }
 
@@ -101,16 +101,19 @@ pub fn place_order<'info>(
 ) -> ProgramResult {
     cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts).with_signer(signer);
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::place_order(cpi_ctx, price, size, side, client_order_id)
 }
 
 pub fn cancel_order<'info>(
     zeta_program: AccountInfo<'info>,
-    cpi_accounts: CancelOrder<'info>,
+    mut cpi_accounts: CancelOrder<'info>,
+    seeds: &[&[u8]],
     side: Side,
     order_id: u128,
 ) -> ProgramResult {
-    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    cpi_accounts.authority.is_signer = true;
+    let signer = &[&seeds[..]];
+    let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
     zeta_interface::cancel_order(cpi_ctx, side, order_id)
 }
