@@ -476,7 +476,7 @@ describe("vault", () => {
     console.log("Your transaction signature", tx);
   });
 
-  // params of the auction
+  // Params of the auction
   let price, size, side;
 
   it("Place auction put sell order on Zeta DEX", async () => {

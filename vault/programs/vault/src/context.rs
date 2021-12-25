@@ -19,10 +19,10 @@ pub struct InitializeVault<'info> {
         bump = bumps.vault_payer)]
     pub vault_payer: AccountInfo<'info>,
     // TODO Confirm USDC mint address on mainnet or leave open as an option for other stables
-    #[account(constraint = usdc_mint.decimals == DECIMALS)]
+    #[account(constraint = usdc_mint.decimals == PLATFORM_PRECISION as u8)]
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(init,
-        mint::decimals = DECIMALS,
+        mint::decimals = PLATFORM_PRECISION as u8,
         mint::authority = vault_payer,
         seeds = [vault_name.as_bytes(), b"redeemable_mint"],
         bump = bumps.redeemable_mint,
