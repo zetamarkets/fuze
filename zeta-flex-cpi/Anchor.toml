@@ -1,11 +1,11 @@
 [programs.localnet]
-zeta_cpi = "7Aqh4kCtp3rdtHSk1mFXswyw37z9Ldad7vmgrbVD2h9J"
+zeta_flex_cpi = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 
 [registry]
 url = "https://anchor.projectserum.com"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

@@ -1,0 +1,13 @@
+pub const UNDERLYING_SEED: &str = "underlying";
+pub const STATE_SEED: &str = "state";
+pub const AUCTION_SEED: &str = "auction";
+pub const MINT_AUTH_SEED: &str = "mint-auth";
+pub const VAULT_AUTH_SEED: &str = "vault-auth";
+pub const VAULT_SEED: &str = "vault";
+pub const AUCTION_VAULT_SEED: &str = "auction-vault";
+pub const BID_VAULT_SEED: &str = "bid-vault";
+pub const BID_ACCOUNT_SEED: &str = "bid-account";
+pub const OPTION_ACCOUNT_SEED: &str = "option-account";
+pub const OPTION_MINT_SEED: &str = "option-mint";
+pub const OPTION_MINT_DECIMALS: u8 = 4;
+pub const USDC_DECIMALS: u32 = 6;
