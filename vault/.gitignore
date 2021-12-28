@@ -4,4 +4,4 @@
 target
 **/*.rs.bk
 node_modules
-!*/target/deploy/vault-keypair.json
+!target/deploy/vault-keypair.json
