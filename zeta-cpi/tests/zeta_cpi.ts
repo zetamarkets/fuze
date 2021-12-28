@@ -21,7 +21,6 @@ const USDC_AMOUNT = 10_000; // 10k USDC
 
 // Constants for addresses
 const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
-const underlyingMint = constants.MINTS["SOL"];
 const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
 
 describe("zeta-cpi", () => {

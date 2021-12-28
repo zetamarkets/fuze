@@ -4,7 +4,9 @@ use anchor_spl::token::{self, Burn, CloseAccount, Mint, MintTo, Token, TokenAcco
 use rust_decimal::prelude::*;
 use std::ops::Deref;
 
+pub mod address;
 pub mod context;
+pub mod constants;
 pub mod pyth_client;
 pub mod zeta_account;
 pub mod zeta_client;
@@ -41,7 +43,7 @@ pub mod vault {
 
         vault.vault_name = name_data;
         vault.bumps = bumps;
-        vault.vault_authority = ctx.accounts.vault_authority.key();
+        vault.vault_admin = ctx.accounts.vault_admin.key();
 
         vault.usdc_mint = ctx.accounts.usdc_mint.key();
         vault.redeemable_mint = ctx.accounts.redeemable_mint.key();
@@ -51,18 +53,18 @@ pub mod vault {
 
         // Transfer initial lamport balance to vault payer
         msg!(
-            "Transferring {} lamports from `vault_authority` to `vault_payer`",
+            "Transferring {} lamports from `vault_admin` to `vault_authority`",
             vault_lamports
         );
         invoke(
             &system_instruction::transfer(
+                &ctx.accounts.vault_admin.key(),
                 &ctx.accounts.vault_authority.key(),
-                &ctx.accounts.vault_payer.key(),
                 vault_lamports,
             ),
             &[
+                ctx.accounts.vault_admin.to_account_info(),
                 ctx.accounts.vault_authority.to_account_info(),
-                ctx.accounts.vault_payer.to_account_info(),
                 ctx.accounts.system_program.to_account_info(),
             ],
         )?;
@@ -88,30 +90,16 @@ pub mod vault {
         }
 
         // Transfer user's USDC to vault USDC account.
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.user_usdc.to_account_info(),
-            to: ctx.accounts.vault_usdc.to_account_info(),
-            authority: ctx.accounts.user_authority.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        token::transfer(cpi_ctx, amount)?;
+        token::transfer(ctx.accounts.into_transfer_context(), amount)?;
 
         // Mint Redeemable to user Redeemable account.
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         let signer = &[&seeds[..]];
-        let cpi_accounts = MintTo {
-            mint: ctx.accounts.redeemable_mint.to_account_info(),
-            to: ctx.accounts.user_redeemable.to_account_info(),
-            authority: ctx.accounts.vault_payer.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::mint_to(cpi_ctx, amount)?;
+        token::mint_to(ctx.accounts.into_mint_to_context(signer), amount)?;
 
         Ok(())
     }
@@ -136,43 +124,22 @@ pub mod vault {
             .unwrap();
 
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         let signer = &[&seeds[..]];
 
         // Burn the user's redeemable tokens.
-        let cpi_accounts = Burn {
-            mint: ctx.accounts.redeemable_mint.to_account_info(),
-            to: ctx.accounts.user_redeemable.to_account_info(),
-            authority: ctx.accounts.vault_payer.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::burn(cpi_ctx, amount)?;
+        token::burn(ctx.accounts.into_burn_context(signer), amount)?;
 
         // Transfer USDC from vault account to the user's usdc account.
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.vault_usdc.to_account_info(),
-            to: ctx.accounts.user_usdc.to_account_info(),
-            authority: ctx.accounts.vault_payer.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, usdc_amount as u64)?;
+        token::transfer(ctx.accounts.into_transfer_context(signer), usdc_amount as u64)?;
 
         // Send rent back to user if account is empty
         ctx.accounts.user_redeemable.reload()?;
         if ctx.accounts.user_redeemable.amount == 0 {
-            let cpi_accounts = CloseAccount {
-                account: ctx.accounts.user_redeemable.to_account_info(),
-                destination: ctx.accounts.user_authority.to_account_info(),
-                authority: ctx.accounts.vault_payer.to_account_info(),
-            };
-            let cpi_program = ctx.accounts.token_program.to_account_info();
-            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-            token::close_account(cpi_ctx)?;
+            token::close_account(ctx.accounts.into_close_account_context(signer))?;
         }
 
         Ok(())
@@ -181,21 +148,14 @@ pub mod vault {
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn withdraw_vault_usdc(ctx: Context<WithdrawVaultUsdc>) -> ProgramResult {
         msg!("WITHDRAW vault USDC");
-        // Transfer total USDC from vault account to vault_authority account.
+        // Transfer total USDC from vault account to vault_admin account.
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         let signer = &[&seeds[..]];
-        let cpi_accounts = Transfer {
-            from: ctx.accounts.vault_usdc.to_account_info(),
-            to: ctx.accounts.vault_authority_usdc.to_account_info(),
-            authority: ctx.accounts.vault_payer.to_account_info(),
-        };
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-        token::transfer(cpi_ctx, ctx.accounts.vault_usdc.amount)?;
+        token::transfer(ctx.accounts.into_transfer_context(signer), ctx.accounts.vault_usdc.amount)?;
 
         Ok(())
     }
@@ -204,9 +164,9 @@ pub mod vault {
         ctx: Context<InitializeZetaMarginAccount>,
     ) -> ProgramResult {
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
@@ -215,12 +175,11 @@ pub mod vault {
         )
     }
 
-    // #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn deposit_zeta(ctx: Context<DepositZeta>, amount: u64) -> ProgramResult {
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
@@ -230,12 +189,11 @@ pub mod vault {
         )
     }
 
-    // #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn withdraw_zeta(ctx: Context<WithdrawZeta>, amount: u64) -> ProgramResult {
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
@@ -247,9 +205,9 @@ pub mod vault {
 
     pub fn initialize_zeta_open_orders(ctx: Context<InitializeZetaOpenOrders>) -> ProgramResult {
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
@@ -268,9 +226,9 @@ pub mod vault {
     ) -> ProgramResult {
         msg!("PLACE AUCTION ORDER");
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::place_order(
             ctx.accounts.zeta_program.clone(),
@@ -290,9 +248,9 @@ pub mod vault {
     ) -> ProgramResult {
         msg!("CANCEL AUCTION ORDER");
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_payer_seeds!(
+        let seeds = vault_authority_seeds!(
             vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_payer
+            bump = ctx.accounts.vault.bumps.vault_authority
         );
         zeta_client::cancel_order(
             ctx.accounts.zeta_program.clone(),
@@ -308,23 +266,26 @@ pub mod vault {
         ctx: Context<RolloverVault>,
         _vault_name: String,
         _bumps: VaultBumps,
-        epoch_times: EpochTimes,
     ) -> ProgramResult {
         msg!("ROLLOVER vault");
         let vault = &mut ctx.accounts.vault;
-        vault.epoch_times = epoch_times;
-
+        vault.epoch_times.start_epoch = vault.epoch_times.start_epoch.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.end_deposits = vault.epoch_times.end_deposits.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.start_auction = vault.epoch_times.start_auction.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.end_auction = vault.epoch_times.end_auction.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.start_settlement = vault.epoch_times.start_settlement.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.end_epoch = vault.epoch_times.end_epoch.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
         Ok(())
     }
 }
 
 #[macro_export]
-macro_rules! vault_payer_seeds {
+macro_rules! vault_authority_seeds {
     (
         vault_name = $vault_name:expr,
         bump = $bump:expr
     ) => {
-        &[$vault_name.strip(), b"payer", &[$bump]]
+        &[b"vault_authority", $vault_name.strip(), &[$bump]]
     };
 }
 

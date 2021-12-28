@@ -9,7 +9,7 @@ const SERVER_URL = "server.zeta.markets";
 
 export interface IVaultBumps {
   vault: number;
-  vaultPayer: number;
+  vaultAuthority: number;
   redeemableMint: number;
   vaultUsdc: number;
 }
@@ -21,6 +21,7 @@ export interface IEpochTimes {
   endAuction: anchor.BN;
   startSettlement: anchor.BN;
   endEpoch: anchor.BN;
+  epochCadence: anchor.BN;
 }
 
 export function sleep(ms) {

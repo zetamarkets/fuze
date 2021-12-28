@@ -1,6 +1,5 @@
 require("dotenv").config({ path: __dirname + `/../.env` });
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
 import { Vault } from "../target/types/vault";
 import { TOKEN_PROGRAM_ID, Token } from "@solana/spl-token";
 import assert from "assert";
@@ -15,9 +14,9 @@ import {
 import { mintUsdc, getClosestMarket } from "./utils";
 
 describe("vault", () => {
-  const vaultAuthority = anchor.web3.Keypair.generate();
+  const vaultAdmin = anchor.web3.Keypair.generate();
   const userKeypair = anchor.web3.Keypair.generate();
-  console.log(vaultAuthority.publicKey.toString());
+  console.log(vaultAdmin.publicKey.toString());
   console.log(userKeypair.publicKey.toString());
 
   // Configure the client to use the local cluster.
@@ -40,7 +39,7 @@ describe("vault", () => {
     zetaUtils.defaultCommitment()
   );
 
-  const program = anchor.workspace.Vault as Program<Vault>;
+  const program = anchor.workspace.Vault as anchor.Program<Vault>;
   const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
 
   const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
@@ -49,7 +48,7 @@ describe("vault", () => {
   // are available to the client.
   let usdcMintAccount: Token;
   let usdcMint: anchor.web3.PublicKey;
-  let vaultAuthorityUsdc: anchor.web3.PublicKey;
+  let vaultAdminUsdc: anchor.web3.PublicKey;
   let vaultMargin;
 
   it("Initializes the state of the world", async () => {
@@ -66,7 +65,7 @@ describe("vault", () => {
     // Airdrop some SOL to the vault authority
     await publicConnection.confirmTransaction(
       await publicConnection.requestAirdrop(
-        vaultAuthority.publicKey,
+        vaultAdmin.publicKey,
         1.0 * anchor.web3.LAMPORTS_PER_SOL // 1 SOL
       ),
       "confirmed"
@@ -75,7 +74,7 @@ describe("vault", () => {
 
     const transferTransaction = new anchor.web3.Transaction().add(
       anchor.web3.SystemProgram.transfer({
-        fromPubkey: vaultAuthority.publicKey,
+        fromPubkey: vaultAdmin.publicKey,
         lamports: 0.1 * anchor.web3.LAMPORTS_PER_SOL, // 0.1 SOL
         toPubkey: userKeypair.publicKey,
       })
@@ -83,7 +82,7 @@ describe("vault", () => {
     await anchor.web3.sendAndConfirmTransaction(
       provider.connection,
       transferTransaction,
-      [vaultAuthority]
+      [vaultAdmin]
     );
 
     usdcMint = await zetaUtils.getTokenMint(
@@ -96,8 +95,8 @@ describe("vault", () => {
       TOKEN_PROGRAM_ID,
       userKeypair // TODO: not sure this is the way to go?
     );
-    vaultAuthorityUsdc = await usdcMintAccount.createAssociatedTokenAccount(
-      vaultAuthority.publicKey
+    vaultAdminUsdc = await usdcMintAccount.createAssociatedTokenAccount(
+      vaultAdmin.publicKey
     );
   });
 
@@ -109,8 +108,8 @@ describe("vault", () => {
 
   let vault: anchor.web3.PublicKey,
     vaultBump,
-    vaultPayer,
-    vaultPayerBump,
+    vaultAuthority,
+    vaultAuthorityBump,
     redeemableMint,
     redeemableMintAccount,
     redeemableMintBump,
@@ -129,18 +128,18 @@ describe("vault", () => {
 
     [redeemableMint, redeemableMintBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(vaultName), Buffer.from("redeemable_mint")],
+        [Buffer.from("redeemable_mint"), Buffer.from(vaultName)],
         program.programId
       );
 
     [vaultUsdc, vaultUsdcBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from(vaultName), Buffer.from("vault_usdc")],
+      [Buffer.from("vault_usdc"), Buffer.from(vaultName)],
       program.programId
     );
 
-    [vaultPayer, vaultPayerBump] =
+    [vaultAuthority, vaultAuthorityBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from(vaultName), Buffer.from("payer")],
+        [Buffer.from("vault_authority"), Buffer.from(vaultName)],
         program.programId
       );
 
@@ -148,7 +147,7 @@ describe("vault", () => {
 
     bumps = {
       vault: vaultBump,
-      vaultPayer: vaultPayerBump,
+      vaultAuthority: vaultAuthorityBump,
       redeemableMint: redeemableMintBump,
       vaultUsdc: vaultUsdcBump,
     };
@@ -156,11 +155,12 @@ describe("vault", () => {
     const nowBn = new anchor.BN(Date.now() / 1000);
     epochTimes = {
       startEpoch: nowBn.add(new anchor.BN(4)),
-      endDeposits: nowBn.add(new anchor.BN(18)),
-      startAuction: nowBn.add(new anchor.BN(20)),
-      endAuction: nowBn.add(new anchor.BN(22)),
-      startSettlement: nowBn.add(new anchor.BN(24)),
-      endEpoch: nowBn.add(new anchor.BN(25)),
+      endDeposits: nowBn.add(new anchor.BN(22)),
+      startAuction: nowBn.add(new anchor.BN(24)),
+      endAuction: nowBn.add(new anchor.BN(26)),
+      startSettlement: nowBn.add(new anchor.BN(28)),
+      endEpoch: nowBn.add(new anchor.BN(30)),
+      epochCadence: new anchor.BN(60), // seconds
     };
 
     await program.rpc.initializeVault(
@@ -170,9 +170,9 @@ describe("vault", () => {
       epochTimes,
       {
         accounts: {
-          vaultAuthority: vaultAuthority.publicKey,
+          vaultAdmin: vaultAdmin.publicKey,
           vault,
-          vaultPayer,
+          vaultAuthority,
           usdcMint,
           redeemableMint,
           vaultUsdc,
@@ -180,7 +180,7 @@ describe("vault", () => {
           tokenProgram: TOKEN_PROGRAM_ID,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
-        signers: [vaultAuthority],
+        signers: [vaultAdmin],
       }
     );
 
@@ -188,12 +188,12 @@ describe("vault", () => {
       provider.connection,
       redeemableMint,
       TOKEN_PROGRAM_ID,
-      vaultAuthority
+      vaultAdmin
     );
 
-    // SOL balance for vault payer PDA is `vaultLamports`
-    let vaultPayerAccount = await connection.getAccountInfo(vaultPayer);
-    assert.ok(vaultPayerAccount.lamports == vaultLamports.toNumber());
+    // SOL balance for vault authority PDA is `vaultLamports`
+    let vaultAuthorityAccount = await connection.getAccountInfo(vaultAuthority);
+    assert.ok(vaultAuthorityAccount.lamports == vaultLamports.toNumber());
     // USDC in vault == 0
     let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
     assert.ok(vaultUsdcAccount.amount.eq(new anchor.BN(0)));
@@ -206,25 +206,25 @@ describe("vault", () => {
     [vaultMargin] = await zetaUtils.getMarginAccount(
       Exchange.programId,
       Exchange.zetaGroupAddress,
-      vaultPayer
+      vaultAuthority
     );
 
     // TODO: temporary workaround, will need to avoid PDA authority until issue #350 is fixed
     const tx = await program.rpc.initializeZetaMarginAccount({
       accounts: {
         zetaProgram: Exchange.programId,
-        vaultAuthority: vaultAuthority.publicKey,
+        vaultAdmin: vaultAdmin.publicKey,
         vault,
         usdcMint,
         initializeMarginCpiAccounts: {
           marginAccount: vaultMargin,
-          authority: vaultPayer,
+          authority: vaultAuthority,
           zetaProgram: Exchange.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
           zetaGroup: Exchange.zetaGroupAddress,
         },
       },
-      signers: [vaultAuthority],
+      signers: [vaultAdmin],
     });
     console.log("Your transaction signature", tx);
   });
@@ -256,9 +256,9 @@ describe("vault", () => {
 
     [userRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
       [
-        userKeypair.publicKey.toBuffer(),
-        Buffer.from(vaultName),
         Buffer.from("user_redeemable"),
+        Buffer.from(vaultName),
+        userKeypair.publicKey.toBuffer(),
       ],
       program.programId
     );
@@ -271,7 +271,7 @@ describe("vault", () => {
           userUsdc,
           userRedeemable,
           vault,
-          vaultPayer,
+          vaultAuthority,
           usdcMint,
           redeemableMint,
           vaultUsdc,
@@ -283,7 +283,7 @@ describe("vault", () => {
               userAuthority: userKeypair.publicKey,
               userRedeemable,
               vault,
-              vaultPayer,
+              vaultAuthority,
               redeemableMint,
               systemProgram: anchor.web3.SystemProgram.programId,
               tokenProgram: TOKEN_PROGRAM_ID,
@@ -318,7 +318,7 @@ describe("vault", () => {
 
     const transferTransaction = new anchor.web3.Transaction().add(
       anchor.web3.SystemProgram.transfer({
-        fromPubkey: vaultAuthority.publicKey,
+        fromPubkey: vaultAdmin.publicKey,
         lamports: 0.1 * anchor.web3.LAMPORTS_PER_SOL, // 0.1 SOL
         toPubkey: secondUserKeypair.publicKey,
       })
@@ -326,7 +326,7 @@ describe("vault", () => {
     await anchor.web3.sendAndConfirmTransaction(
       provider.connection,
       transferTransaction,
-      [vaultAuthority]
+      [vaultAdmin]
     );
     secondUserUsdc = await usdcMintAccount.createAssociatedTokenAccount(
       secondUserKeypair.publicKey
@@ -345,9 +345,9 @@ describe("vault", () => {
 
     [secondUserRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
       [
-        secondUserKeypair.publicKey.toBuffer(),
-        Buffer.from(vaultName),
         Buffer.from("user_redeemable"),
+        Buffer.from(vaultName),
+        secondUserKeypair.publicKey.toBuffer(),
       ],
       program.programId
     );
@@ -360,7 +360,7 @@ describe("vault", () => {
           userUsdc: secondUserUsdc,
           userRedeemable: secondUserRedeemable,
           vault,
-          vaultPayer,
+          vaultAuthority,
           usdcMint,
           redeemableMint,
           vaultUsdc,
@@ -372,7 +372,7 @@ describe("vault", () => {
               userAuthority: secondUserKeypair.publicKey,
               userRedeemable: secondUserRedeemable,
               vault,
-              vaultPayer,
+              vaultAuthority,
               redeemableMint,
               systemProgram: anchor.web3.SystemProgram.programId,
               tokenProgram: TOKEN_PROGRAM_ID,
@@ -405,7 +405,7 @@ describe("vault", () => {
       {
         accounts: {
           zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
+          vaultAdmin: vaultAdmin.publicKey,
           vault,
           usdcMint,
           depositCpiAccounts: {
@@ -414,13 +414,13 @@ describe("vault", () => {
             vault: Exchange.vaultAddress,
             userTokenAccount: vaultUsdc,
             socializedLossAccount: Exchange.socializedLossAccountAddress,
-            authority: vaultPayer,
+            authority: vaultAuthority,
             tokenProgram: TOKEN_PROGRAM_ID,
             state: Exchange.stateAddress,
             greeks: Exchange.greeksAddress,
           },
         },
-        signers: [vaultAuthority],
+        signers: [vaultAdmin],
       }
     );
     console.log("Your transaction signature", tx);
@@ -443,7 +443,7 @@ describe("vault", () => {
     [openOrders] = await zetaUtils.getOpenOrders(
       Exchange.programId,
       market.address,
-      vaultPayer
+      vaultAuthority
     );
 
     [openOrdersMap] = await zetaUtils.getOpenOrdersMap(
@@ -454,7 +454,7 @@ describe("vault", () => {
     const tx = await program.rpc.initializeZetaOpenOrders({
       accounts: {
         zetaProgram: Exchange.programId,
-        vaultAuthority: vaultAuthority.publicKey,
+        vaultAdmin: vaultAdmin.publicKey,
         vault,
         usdcMint,
         initializeOpenOrdersCpiAccounts: {
@@ -464,14 +464,14 @@ describe("vault", () => {
           systemProgram: anchor.web3.SystemProgram.programId,
           openOrders: openOrders,
           marginAccount: vaultMargin,
-          authority: vaultPayer,
+          authority: vaultAuthority,
           market: market.address,
           serumAuthority: Exchange.serumAuthority,
           openOrdersMap: openOrdersMap,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
       },
-      signers: [vaultAuthority],
+      signers: [vaultAdmin],
     });
     console.log("Your transaction signature", tx);
   });
@@ -523,14 +523,14 @@ describe("vault", () => {
       {
         accounts: {
           zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
+          vaultAdmin: vaultAdmin.publicKey,
           vault,
           usdcMint,
           placeOrderCpiAccounts: {
             state: Exchange.stateAddress,
             zetaGroup: Exchange.zetaGroupAddress,
             marginAccount: vaultMargin,
-            authority: vaultPayer,
+            authority: vaultAuthority,
             dexProgram: constants.DEX_PID,
             tokenProgram: TOKEN_PROGRAM_ID,
             serumAuthority: Exchange.serumAuthority,
@@ -547,7 +547,7 @@ describe("vault", () => {
             mintAuthority: Exchange.mintAuthority,
           },
         },
-        signers: [vaultAuthority],
+        signers: [vaultAdmin],
       }
     );
     console.log("Your transaction signature", tx);
@@ -587,15 +587,15 @@ describe("vault", () => {
       {
         accounts: {
           zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
+          vaultAdmin: vaultAdmin.publicKey,
           vault,
           usdcMint,
           cancelOrderCpiAccounts: {
-            authority: vaultPayer,
+            authority: vaultAuthority,
             cancelAccounts: cancelAccounts,
           },
         },
-        signers: [vaultAuthority],
+        signers: [vaultAdmin],
       }
     );
     console.log("Your transaction signature", tx);
@@ -611,7 +611,7 @@ describe("vault", () => {
       {
         accounts: {
           zetaProgram: Exchange.programId,
-          vaultAuthority: vaultAuthority.publicKey,
+          vaultAdmin: vaultAdmin.publicKey,
           vault,
           usdcMint,
           withdrawCpiAccounts: {
@@ -621,13 +621,13 @@ describe("vault", () => {
             marginAccount: vaultMargin,
             userTokenAccount: vaultUsdc,
             tokenProgram: TOKEN_PROGRAM_ID,
-            authority: vaultPayer,
+            authority: vaultAuthority,
             greeks: Exchange.greeksAddress,
             oracle: pythOracle,
             socializedLossAccount: Exchange.socializedLossAccountAddress,
           },
         },
-        signers: [vaultAuthority],
+        signers: [vaultAdmin],
       }
     );
     console.log("Your transaction signature", tx);
@@ -651,26 +651,55 @@ describe("vault", () => {
     if (Date.now() < epochTimes.endEpoch.toNumber() * 1000) {
       await sleep(epochTimes.endEpoch.toNumber() * 1000 - Date.now() + 3000);
     }
-    const nowBn = new anchor.BN(Date.now() / 1000);
-    epochTimes = {
-      startEpoch: nowBn.add(new anchor.BN(4)),
-      endDeposits: nowBn.add(new anchor.BN(18)),
-      startAuction: nowBn.add(new anchor.BN(20)),
-      endAuction: nowBn.add(new anchor.BN(22)),
-      startSettlement: nowBn.add(new anchor.BN(24)),
-      endEpoch: nowBn.add(new anchor.BN(25)),
+
+    const newEpochTimes = {
+      startEpoch: epochTimes.startEpoch.add(epochTimes.epochCadence),
+      endDeposits: epochTimes.endDeposits.add(epochTimes.epochCadence),
+      startAuction: epochTimes.startAuction.add(epochTimes.epochCadence),
+      endAuction: epochTimes.endAuction.add(epochTimes.epochCadence),
+      startSettlement: epochTimes.startSettlement.add(epochTimes.epochCadence),
+      endEpoch: epochTimes.endEpoch.add(epochTimes.epochCadence),
+      epochCadence: epochTimes.epochCadence,
     };
 
-    await program.rpc.rolloverVault(vaultName, bumps, epochTimes, {
+    await program.rpc.rolloverVault(vaultName, bumps, {
       accounts: {
-        vaultAuthority: vaultAuthority.publicKey,
+        vaultAdmin: vaultAdmin.publicKey,
         vault,
       },
-      signers: [vaultAuthority],
+      signers: [vaultAdmin],
     });
 
     let vaultAccount = await program.account.vault.fetch(vault);
-    assert.deepEqual(vaultAccount.epochTimes, epochTimes);
+    assert.equal(
+      vaultAccount.epochTimes.startEpoch.toNumber(),
+      newEpochTimes.startEpoch.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.endDeposits.toNumber(),
+      newEpochTimes.endDeposits.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.startAuction.toNumber(),
+      newEpochTimes.startAuction.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.endAuction.toNumber(),
+      newEpochTimes.endAuction.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.startSettlement.toNumber(),
+      newEpochTimes.startSettlement.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.endEpoch.toNumber(),
+      newEpochTimes.endEpoch.toNumber()
+    );
+    assert.equal(
+      vaultAccount.epochTimes.epochCadence.toNumber(),
+      newEpochTimes.epochCadence.toNumber()
+    );
+    epochTimes = newEpochTimes;
   });
 
   // Withdraw Phase
@@ -689,7 +718,7 @@ describe("vault", () => {
           userUsdc,
           userRedeemable,
           vault,
-          vaultPayer,
+          vaultAuthority,
           usdcMint,
           redeemableMint,
           vaultUsdc,
@@ -715,15 +744,15 @@ describe("vault", () => {
   it("Withdraws total USDC from vault account", async () => {
     await program.rpc.withdrawVaultUsdc({
       accounts: {
-        vaultAuthority: vaultAuthority.publicKey,
-        vaultAuthorityUsdc,
+        vaultAdmin: vaultAdmin.publicKey,
+        vaultAdminUsdc,
         vault,
-        vaultPayer,
+        vaultAuthority,
         usdcMint,
         vaultUsdc,
         tokenProgram: TOKEN_PROGRAM_ID,
       },
-      signers: [vaultAuthority],
+      signers: [vaultAdmin],
     });
 
     let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
@@ -731,11 +760,11 @@ describe("vault", () => {
       zetaUtils.convertNativeBNToDecimal(vaultUsdcAccount.amount),
       0
     );
-    let vaultAuthorityUsdcAccount = await usdcMintAccount.getAccountInfo(
-      vaultAuthorityUsdc
+    let vaultAdminUsdcAccount = await usdcMintAccount.getAccountInfo(
+      vaultAdminUsdc
     );
     assert.ok(
-      zetaUtils.convertNativeBNToDecimal(vaultAuthorityUsdcAccount.amount),
+      zetaUtils.convertNativeBNToDecimal(vaultAdminUsdcAccount.amount),
       totalVaultUsdc
     );
   });
