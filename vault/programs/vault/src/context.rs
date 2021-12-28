@@ -1,5 +1,5 @@
-use crate::zeta_context::*;
 use crate::constants::*;
+use crate::zeta_context::*;
 use crate::*;
 
 #[derive(Accounts)]
@@ -337,7 +337,7 @@ pub struct EpochTimes {
     pub end_auction: i64,      // Friday W1 12:05pm UTC
     pub start_settlement: i64, // Friday W2 8am UTC
     pub end_epoch: i64,        // Friday W2 10am UTC
-    pub epoch_cadence: u64, // spacing between successive epochs in seconds
+    pub epoch_cadence: u64,    // spacing between successive epochs in seconds
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone)]
@@ -361,7 +361,10 @@ impl<'info> ExchangeUsdcForRedeemable<'info> {
         CpiContext::new(cpi_program, cpi_accounts)
     }
 
-    pub fn into_mint_to_context<'a, 'b, 'c>(&self, signer: &'a[&'b[&'c[u8]]]) -> CpiContext<'a, 'b, 'c, 'info, MintTo<'info>> {
+    pub fn into_mint_to_context<'a, 'b, 'c>(
+        &self,
+        signer: &'a [&'b [&'c [u8]]],
+    ) -> CpiContext<'a, 'b, 'c, 'info, MintTo<'info>> {
         let cpi_accounts = MintTo {
             mint: self.redeemable_mint.to_account_info(),
             to: self.user_redeemable.to_account_info(),
@@ -373,7 +376,10 @@ impl<'info> ExchangeUsdcForRedeemable<'info> {
 }
 
 impl<'info> ExchangeRedeemableForUsdc<'info> {
-    pub fn into_burn_context<'a, 'b, 'c>(&self, signer: &'a[&'b[&'c[u8]]]) -> CpiContext<'a, 'b, 'c, 'info, Burn<'info>> {
+    pub fn into_burn_context<'a, 'b, 'c>(
+        &self,
+        signer: &'a [&'b [&'c [u8]]],
+    ) -> CpiContext<'a, 'b, 'c, 'info, Burn<'info>> {
         let cpi_accounts = Burn {
             mint: self.redeemable_mint.to_account_info(),
             to: self.user_redeemable.to_account_info(),
@@ -383,7 +389,10 @@ impl<'info> ExchangeRedeemableForUsdc<'info> {
         CpiContext::new_with_signer(cpi_program, cpi_accounts, signer)
     }
 
-    pub fn into_transfer_context<'a, 'b, 'c>(&self, signer: &'a[&'b[&'c[u8]]]) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
+    pub fn into_transfer_context<'a, 'b, 'c>(
+        &self,
+        signer: &'a [&'b [&'c [u8]]],
+    ) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
             from: self.vault_usdc.to_account_info(),
             to: self.user_usdc.to_account_info(),
@@ -393,7 +402,10 @@ impl<'info> ExchangeRedeemableForUsdc<'info> {
         CpiContext::new_with_signer(cpi_program, cpi_accounts, signer)
     }
 
-    pub fn into_close_account_context<'a, 'b, 'c>(&self, signer: &'a[&'b[&'c[u8]]]) -> CpiContext<'a, 'b, 'c, 'info, CloseAccount<'info>> {
+    pub fn into_close_account_context<'a, 'b, 'c>(
+        &self,
+        signer: &'a [&'b [&'c [u8]]],
+    ) -> CpiContext<'a, 'b, 'c, 'info, CloseAccount<'info>> {
         let cpi_accounts = CloseAccount {
             account: self.user_redeemable.to_account_info(),
             destination: self.user_authority.to_account_info(),
@@ -405,7 +417,10 @@ impl<'info> ExchangeRedeemableForUsdc<'info> {
 }
 
 impl<'info> WithdrawVaultUsdc<'info> {
-    pub fn into_transfer_context<'a, 'b, 'c>(&self, signer: &'a[&'b[&'c[u8]]]) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
+    pub fn into_transfer_context<'a, 'b, 'c>(
+        &self,
+        signer: &'a [&'b [&'c [u8]]],
+    ) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
             from: self.vault_usdc.to_account_info(),
             to: self.vault_admin_usdc.to_account_info(),

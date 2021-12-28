@@ -5,8 +5,8 @@ use rust_decimal::prelude::*;
 use std::ops::Deref;
 
 pub mod address;
-pub mod context;
 pub mod constants;
+pub mod context;
 pub mod pyth_client;
 pub mod zeta_account;
 pub mod zeta_client;
@@ -136,7 +136,10 @@ pub mod vault {
         token::burn(ctx.accounts.into_burn_context(signer), amount)?;
 
         // Transfer USDC from vault account to the user's usdc account.
-        token::transfer(ctx.accounts.into_transfer_context(signer), usdc_amount as u64)?;
+        token::transfer(
+            ctx.accounts.into_transfer_context(signer),
+            usdc_amount as u64,
+        )?;
 
         // Send rent back to user if account is empty
         ctx.accounts.user_redeemable.reload()?;
@@ -157,7 +160,10 @@ pub mod vault {
             bump = ctx.accounts.vault.bumps.vault_authority
         );
         let signer = &[&seeds[..]];
-        token::transfer(ctx.accounts.into_transfer_context(signer), ctx.accounts.vault_usdc.amount)?;
+        token::transfer(
+            ctx.accounts.into_transfer_context(signer),
+            ctx.accounts.vault_usdc.amount,
+        )?;
 
         Ok(())
     }
@@ -264,17 +270,39 @@ pub mod vault {
     }
 
     #[access_control(epoch_over(&ctx.accounts.vault))]
-    pub fn rollover_vault(
-        ctx: Context<RolloverVault>
-    ) -> ProgramResult {
+    pub fn rollover_vault(ctx: Context<RolloverVault>) -> ProgramResult {
         msg!("ROLLOVER vault");
         let vault = &mut ctx.accounts.vault;
-        vault.epoch_times.start_epoch = vault.epoch_times.start_epoch.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
-        vault.epoch_times.end_deposits = vault.epoch_times.end_deposits.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
-        vault.epoch_times.start_auction = vault.epoch_times.start_auction.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
-        vault.epoch_times.end_auction = vault.epoch_times.end_auction.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
-        vault.epoch_times.start_settlement = vault.epoch_times.start_settlement.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
-        vault.epoch_times.end_epoch = vault.epoch_times.end_epoch.checked_add(vault.epoch_times.epoch_cadence as i64).unwrap();
+        vault.epoch_times.start_epoch = vault
+            .epoch_times
+            .start_epoch
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
+        vault.epoch_times.end_deposits = vault
+            .epoch_times
+            .end_deposits
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
+        vault.epoch_times.start_auction = vault
+            .epoch_times
+            .start_auction
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
+        vault.epoch_times.end_auction = vault
+            .epoch_times
+            .end_auction
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
+        vault.epoch_times.start_settlement = vault
+            .epoch_times
+            .start_settlement
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
+        vault.epoch_times.end_epoch = vault
+            .epoch_times
+            .end_epoch
+            .checked_add(vault.epoch_times.epoch_cadence as i64)
+            .unwrap();
         Ok(())
     }
 }
