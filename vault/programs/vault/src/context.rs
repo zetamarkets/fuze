@@ -23,7 +23,6 @@ pub struct InitializeVault<'info> {
         bump = bumps.vault_authority
     )]
     pub vault_authority: AccountInfo<'info>,
-    // TODO Confirm USDC mint address on mainnet or leave open as an option for other stables
     #[account(address = address::usdc::ID)]
     pub usdc_mint: Box<Account<'info, Mint>>,
     #[account(
@@ -84,13 +83,14 @@ pub struct InitUserRedeemable<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(bump: u8)]
 pub struct ExchangeUsdcForRedeemable<'info> {
     // User Accounts
     pub user_authority: Signer<'info>,
     #[account(
         mut,
-        constraint = user_usdc.owner == user_authority.key(),
-        constraint = user_usdc.mint == usdc_mint.key()
+        constraint = user_usdc.owner == user_authority.key() @ ErrorCode::InvalidUserUsdcAccountOwner,
+        constraint = user_usdc.mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub user_usdc: Box<Account<'info, TokenAccount>>,
     #[account(
@@ -98,14 +98,14 @@ pub struct ExchangeUsdcForRedeemable<'info> {
         seeds = [USER_REDEEMABLE_SEED.as_bytes(),
             vault.vault_name.as_ref().strip(),
             user_authority.key().as_ref()],
-        bump
+        bump = bump
     )]
     pub user_redeemable: Box<Account<'info, TokenAccount>>,
     // vault Accounts
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = usdc_mint
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     #[account(
@@ -131,14 +131,15 @@ pub struct ExchangeUsdcForRedeemable<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(bump: u8)]
 pub struct ExchangeRedeemableForUsdc<'info> {
     // User Accounts
     #[account(mut)]
     pub user_authority: Signer<'info>,
     #[account(
         mut,
-        constraint = user_usdc.owner == user_authority.key(),
-        constraint = user_usdc.mint == usdc_mint.key()
+        constraint = user_usdc.owner == user_authority.key() @ ErrorCode::InvalidUserUsdcAccountOwner,
+        constraint = user_usdc.mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub user_usdc: Box<Account<'info, TokenAccount>>,
     #[account(
@@ -146,14 +147,14 @@ pub struct ExchangeRedeemableForUsdc<'info> {
         seeds = [USER_REDEEMABLE_SEED.as_bytes(),
             vault.vault_name.as_ref().strip(),
             user_authority.key().as_ref()],
-        bump
+        bump = bump
     )]
     pub user_redeemable: Box<Account<'info, TokenAccount>>,
     // vault Accounts
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = usdc_mint
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     #[account(
@@ -185,16 +186,16 @@ pub struct WithdrawVaultUsdc<'info> {
     // Doesn't need to be an ATA because it might be a DAO account
     #[account(
         mut,
-        constraint = vault_admin_usdc.owner == vault_admin.key(),
-        constraint = vault_admin_usdc.mint == usdc_mint.key()
+        constraint = vault_admin_usdc.owner == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault_admin_usdc.mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault_admin_usdc: Box<Account<'info, TokenAccount>>,
     // vault Accounts
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     #[account(seeds = [VAULT_AUTHORITY_SEED.as_bytes(), vault.vault_name.as_ref().strip()],
@@ -218,8 +219,8 @@ pub struct InitializeZetaMarginAccount<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -233,8 +234,8 @@ pub struct DepositZeta<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -248,8 +249,8 @@ pub struct WithdrawZeta<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -263,8 +264,8 @@ pub struct InitializeZetaOpenOrders<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -278,8 +279,8 @@ pub struct PlaceAuctionOrder<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -293,8 +294,8 @@ pub struct CancelAuctionOrder<'info> {
     #[account(
         seeds = [vault.vault_name.as_ref().strip()],
         bump = vault.bumps.vault,
-        has_one = vault_admin,
-        has_one = usdc_mint
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
+        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
     )]
     pub vault: Box<Account<'info, Vault>>,
     pub usdc_mint: Box<Account<'info, Mint>>,
@@ -302,7 +303,6 @@ pub struct CancelAuctionOrder<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(vault_name: String, bumps: VaultBumps)]
 pub struct RolloverVault<'info> {
     // vault Authority accounts
     #[account(mut)]
@@ -310,9 +310,7 @@ pub struct RolloverVault<'info> {
     // vault Accounts
     #[account(
         mut,
-        seeds = [vault_name.as_bytes()],
-        bump = bumps.vault,
-        has_one = vault_admin
+        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin
     )]
     pub vault: Box<Account<'info, Vault>>,
 }

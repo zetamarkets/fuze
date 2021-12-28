@@ -116,7 +116,9 @@ describe("vault", () => {
     vaultUsdc,
     vaultUsdcBump,
     userRedeemable,
+    userRedeemableBump,
     secondUserRedeemable,
+    secondUserRedeemableBump,
     bumps: IVaultBumps,
     epochTimes: IEpochTimes;
 
@@ -160,7 +162,7 @@ describe("vault", () => {
       endAuction: nowBn.add(new anchor.BN(26)),
       startSettlement: nowBn.add(new anchor.BN(28)),
       endEpoch: nowBn.add(new anchor.BN(30)),
-      epochCadence: new anchor.BN(60), // seconds
+      epochCadence: new anchor.BN(40), // seconds
     };
 
     await program.rpc.initializeVault(
@@ -254,16 +256,18 @@ describe("vault", () => {
       firstDeposit
     );
 
-    [userRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("user_redeemable"),
-        Buffer.from(vaultName),
-        userKeypair.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+    [userRedeemable, userRedeemableBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("user_redeemable"),
+          Buffer.from(vaultName),
+          userKeypair.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
 
     await program.rpc.exchangeUsdcForRedeemable(
+      userRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(firstDeposit)),
       {
         accounts: {
@@ -343,16 +347,18 @@ describe("vault", () => {
       secondDeposit
     );
 
-    [secondUserRedeemable] = await anchor.web3.PublicKey.findProgramAddress(
-      [
-        Buffer.from("user_redeemable"),
-        Buffer.from(vaultName),
-        secondUserKeypair.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
+    [secondUserRedeemable, secondUserRedeemableBump] =
+      await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from("user_redeemable"),
+          Buffer.from(vaultName),
+          secondUserKeypair.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
 
     await program.rpc.exchangeUsdcForRedeemable(
+      secondUserRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(secondDeposit)),
       {
         accounts: {
@@ -662,7 +668,7 @@ describe("vault", () => {
       epochCadence: epochTimes.epochCadence,
     };
 
-    await program.rpc.rolloverVault(vaultName, bumps, {
+    await program.rpc.rolloverVault({
       accounts: {
         vaultAdmin: vaultAdmin.publicKey,
         vault,
@@ -711,6 +717,7 @@ describe("vault", () => {
       await sleep(epochTimes.startEpoch.toNumber() * 1000 - Date.now() + 3000);
     }
     await program.rpc.exchangeRedeemableForUsdc(
+      userRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(firstWithdrawal)),
       {
         accounts: {

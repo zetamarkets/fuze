@@ -81,6 +81,7 @@ pub mod vault {
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn exchange_usdc_for_redeemable(
         ctx: Context<ExchangeUsdcForRedeemable>,
+        _bump: u8,
         amount: u64,
     ) -> ProgramResult {
         msg!("EXCHANGE USDC FOR REDEEMABLE");
@@ -107,6 +108,7 @@ pub mod vault {
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
     pub fn exchange_redeemable_for_usdc(
         ctx: Context<ExchangeRedeemableForUsdc>,
+        _bump: u8,
         amount: u64,
     ) -> ProgramResult {
         msg!("EXCHANGE REDEEMABLE FOR USDC");
@@ -263,9 +265,7 @@ pub mod vault {
 
     #[access_control(epoch_over(&ctx.accounts.vault))]
     pub fn rollover_vault(
-        ctx: Context<RolloverVault>,
-        _vault_name: String,
-        _bumps: VaultBumps,
+        ctx: Context<RolloverVault>
     ) -> ProgramResult {
         msg!("ROLLOVER vault");
         let vault = &mut ctx.accounts.vault;
@@ -332,6 +332,12 @@ pub enum ErrorCode {
     UsdcNotEqRedeem,
     #[msg("Given nonce is invalid")]
     InvalidNonce,
+    #[msg("Invalid USDC mint")]
+    InvalidUsdcMint,
+    #[msg("Invalid user USDC account owner")]
+    InvalidUserUsdcAccountOwner,
+    #[msg("Invalid vault admin")]
+    InvalidVaultAdmin,
 }
 
 // Access control modifiers.
