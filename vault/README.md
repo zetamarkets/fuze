@@ -44,7 +44,7 @@ _Friday (t+1) 8-10am UTC_
 All positions taken on by the vault during the week (via the auction) are settled on the underlying Zeta DEX at expiry. There are two primary outcomes:
 
 1. OTM: puts finish OTM and vault gets to keep the premiums (~95% chance)
-2. ITM: puts finish ITM and can be exercised by MMs causing a loss for the vault (~5% chance)
+2. ITM: puts finish ITM causing a loss for the vault (~5% chance)
 
 ### 4. Rollover
 
