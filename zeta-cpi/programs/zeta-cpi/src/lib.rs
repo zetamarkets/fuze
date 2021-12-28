@@ -52,8 +52,9 @@ pub mod zeta_cpi {
     pub fn place_order(
         ctx: Context<PlaceOrderCaller>,
         price: u64,
-        size: u32,
+        size: u64,
         side: Side,
+        client_order_id: Option<u64>,
     ) -> ProgramResult {
         zeta_client::place_order(
             ctx.accounts.zeta_program.clone(),
@@ -61,6 +62,7 @@ pub mod zeta_cpi {
             price,
             size,
             side,
+            client_order_id
         )
     }
 
@@ -82,8 +84,8 @@ pub mod zeta_cpi {
             deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
 
         // Get the data for the front expiration.
-        let front_expiry_index = zeta_group.front_expiry_index as usize;
-        let expiry_series = zeta_group.expiry_series[front_expiry_index];
+        let expiry_index = zeta_group.front_expiry_index as usize;
+        let expiry_series = zeta_group.expiry_series[expiry_index];
         {
             // The unix timestamp that the products are tradeable.
             msg!("Active timestamp {}", expiry_series.active_ts);
@@ -91,7 +93,7 @@ pub mod zeta_cpi {
             // The unix timestamp that the products expire.
             msg!("Expiry timestamp {}", expiry_series.expiry_ts);
 
-            let status = zeta_group.expiry_series[front_expiry_index].status()?;
+            let status = zeta_group.expiry_series[expiry_index].status()?;
 
             // If the market is tradeable.
             msg!("Is market live?: {:?}", status == ExpirySeriesStatus::Live);
@@ -104,14 +106,14 @@ pub mod zeta_cpi {
         }
 
         // Show the data for all products in a given expiry series. Use the front expiry.
-        let products_slice = zeta_group.get_products_slice(front_expiry_index);
+        let products_slice = zeta_group.get_products_slice(expiry_index);
         for i in 0..products_slice.len() {
             let product = &products_slice[i];
 
             // The market index of the given product.
             // This allows for direct indexing into zeta_group.
             // i.e `product == &zeta_group.products[product_index]`
-            let market_index = get_products_slice_market_index(front_expiry_index, i);
+            let market_index = get_products_slice_market_index(expiry_index, i);
 
             // Strike has 6 decimals of precision.
             let strike = product.strike.get_strike()?;
@@ -134,18 +136,20 @@ pub mod zeta_cpi {
 
         // Get the mark price and greek data for the first product in the expiry series.
         // This happens to be the lowest strike call.
-        let market_index = get_products_slice_market_index(front_expiry_index, 0);
-        let greeks_index = get_greeks_index(front_expiry_index, market_index);
+        let product_index = 0;
+        let market_index = get_products_slice_market_index(expiry_index, product_index);
 
         let greeks = deserialize_account_info_zerocopy::<Greeks>(&ctx.accounts.greeks).unwrap();
+        let market_mark_prices = greeks.get_mark_prices_slice(expiry_index)[product_index];
+        let market_product_greeks = greeks.get_product_greeks_slice(expiry_index)[product_index];
 
         msg!(&format!(
             "Market index = {}, Mark price = {}, Delta = {}, Vega = {:?}, IV = {:?}",
             market_index,
-            greeks.mark_prices[market_index],
-            greeks.product_greeks[greeks_index].delta,
-            Decimal::from(greeks.product_greeks[greeks_index].vega),
-            Decimal::from(greeks.product_greeks[greeks_index].volatility)
+            market_mark_prices,
+            market_product_greeks.delta,
+            Decimal::from(market_product_greeks.vega),
+            Decimal::from(market_product_greeks.volatility)
         ));
 
         let margin_account =
@@ -198,4 +202,6 @@ pub enum ErrorCode {
     MarketNotLive,
     #[msg("Product dirty")]
     ProductDirty,
+    #[msg("Invalid option kind, must be Call or Put")]
+    InvalidOptionKind,
 }

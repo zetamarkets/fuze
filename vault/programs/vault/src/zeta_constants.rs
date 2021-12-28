@@ -43,29 +43,12 @@ pub const ACTIVE_MARKETS: usize = ACTIVE_EXPIRIES * NUM_PRODUCTS_PER_SERIES;
 pub const TOTAL_MARKETS: usize = TOTAL_EXPIRIES * NUM_PRODUCTS_PER_SERIES;
 pub const MARKET_INDEX_LIMIT: usize = 40;
 
-// Pricing.
-
-// Sense check bounds for retreats.
-pub const MAX_INTEREST_RATE: i64 = 1_000_000_000_000; // 100%
-pub const MIN_INTEREST_RATE: i64 = -1_000_000_000_000; // -100%
-
-pub const MIN_VOLATILITY: u64 = 100_000_000_000; // 10 points.
-pub const MAX_VOLATILITY: u64 = 5_000_000_000_000; // 500 points.
-
-// Cap retreat to 5% of current volatility.
-pub const MAX_VOLATILITY_RETREAT_PERCENT: u64 = 5;
-pub const MAX_INTEREST_RATE_RETREAT: i64 = 20_000_000_000; // 2%
-
 pub const VOLATILITY_POINTS: usize = 5;
 pub const SECONDS_IN_A_YEAR: u64 = 31_536_000;
 
 // Margin calculations
 pub const NATIVE_PRECISION_DENOMINATOR: u128 = 100_000_000; // 100%
 pub const POSITION_PRECISION_DENOMINATOR: u128 = 1_000;
-
-// Futures
-pub const FUTURE_MARGIN_INITIAL: u128 = 15_000_000; // 15.0%
-pub const FUTURE_MARGIN_MAINTENANCE: u128 = 7_500_000; // 7.5%
 
 // Options initial
 pub const OPTION_MARK_PCT_LONG_INITIAL: u128 = 100_000_000;
