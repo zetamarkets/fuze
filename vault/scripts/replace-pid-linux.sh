@@ -3,10 +3,10 @@ ROOT="$(git rev-parse --show-toplevel)/vault"
 
 echo $ROOT
 
-old_pubkey=$(solana-keygen pubkey ./target/deploy/vault-keypair.json)
+old_pubkey=$(solana address -k ./target/deploy/vault-keypair.json)
 rm $ROOT/target/deploy/vault-keypair.json
 solana-keygen new --outfile $ROOT/target/deploy/vault-keypair.json
-new_pubkey=$(solana-keygen pubkey ./target/deploy/vault-keypair.json)
+new_pubkey=$(solana address -k ./target/deploy/vault-keypair.json)
 
 echo "old_pubkey = $old_pubkey"
 echo "new_pubkey = $new_pubkey"

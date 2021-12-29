@@ -18,7 +18,7 @@ use crate::zeta_account::*;
 use crate::zeta_constants::*;
 use crate::zeta_utils::*;
 
-declare_id!("CdTeT43EUnZYLEpGUpzaKQDN9QsusXwfZuBSb415K5W2");
+declare_id!("stdcqm7Cc8Bj1JZfBPYY8Hyzqqjabm7ugk6k74QEm1B");
 
 #[program]
 pub mod vault {
