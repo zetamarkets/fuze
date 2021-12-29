@@ -230,10 +230,10 @@
   resolved "https://registry.npmjs.org/@ungap/promise-all-settled/-/promise-all-settled-1.1.2.tgz"
   integrity sha512-sL/cEvJWAnClXw0wHk85/2L0G6Sj8UB0Ctc1TEMbKSsmpRosqhwj9gWgFRZSrBr2f9tiXISwNhCPmlfqUqyb9Q==
 
-"@zetamarkets/sdk@^0.9.1":
-  version "0.9.1"
-  resolved "https://registry.yarnpkg.com/@zetamarkets/sdk/-/sdk-0.9.1.tgz#daa7ffbc109706c5879b83ac685c5c695404b187"
-  integrity sha512-nhZv6QH6eX8mo6CBKO/0nYOqaKWcFjhRUKfu6iZE38h7+Ok9SD9j5bifQcyFvB4x4KEve30boNTeQ2f4pTphAQ==
+"@zetamarkets/sdk@^0.9.4":
+  version "0.9.4"
+  resolved "https://registry.npmjs.org/@zetamarkets/sdk/-/sdk-0.9.4.tgz"
+  integrity sha512-q+UCJsnrlsRpv1UVqT/jtAKzur26nDb3RQQsASlhwLtBrwnql6K2djv9C98Mk9k3cRpvI0V7mOe9sT7W9jX6Ag==
   dependencies:
     "@project-serum/anchor" "0.18.2"
     "@project-serum/serum" "0.13.55"
