@@ -4,6 +4,10 @@ This is a reference implementation for a put selling vault that leverages the Ze
 
 In order to run the testing script, we need to replace the vault PID with your own. We can do this by simply running scripts/replace-pid.sh.
 
+```sh
+./scripts/replace-pid.sh
+```
+
 **Disclaimer: This code is currently unaudited, use at your own risk.**
 
 ## Tokenized Ownership
