@@ -113,8 +113,8 @@ pub struct ZetaGroup {
     pub expiry_series_padding: [ExpirySeries; 4],
 
     pub total_insurance_vault_deposits: u64,
-    pub padding: [u8; 1135], // 256 - 98 - 36
-} // 1 + 1 + 1 + 1 + 167 + 32 + 32 + 32 + 64 + 80 + 5934 + 192 + 8 = 6545
+    pub padding: [u8; 1063], // 7680 - 6617
+} // 1 + 1 + 1 + 1 + 167 + 32 + 32 + 32 + 96 + 120 + 5934 + 192 + 8 = 6617
 
 #[zero_copy]
 pub struct HaltState {
@@ -138,6 +138,7 @@ pub struct PricingParameters {
     pub max_interest_retreat: AnchorDecimal,
     pub max_delta: u64,
     pub min_delta: u64,
+    pub padding: [u8; 32],
 } // 64
 
 #[zero_copy]
@@ -158,7 +159,11 @@ pub struct MarginParameters {
     pub option_spot_percentage_long_maintenance: u64,
     pub option_spot_percentage_short_maintenance: u64,
     pub option_dynamic_percentage_short_maintenance: u64,
-} // 80 bytes.
+
+    // Other parameters
+    pub option_short_put_cap_percentage: u64,
+    pub padding: [u8; 32],
+} // 120 bytes.
 
 impl ZetaGroup {
     pub fn get_strike(&self, index: usize) -> Result<u64> {
