@@ -82,16 +82,27 @@ pub mod vault {
     pub fn exchange_usdc_for_redeemable(
         ctx: Context<ExchangeUsdcForRedeemable>,
         _bump: u8,
-        amount: u64,
+        usdc_amount: u64,
     ) -> ProgramResult {
         msg!("EXCHANGE USDC FOR REDEEMABLE");
         // While token::transfer will check this, we prefer a verbose err msg.
-        if ctx.accounts.user_usdc.amount < amount {
+        if ctx.accounts.user_usdc.amount < usdc_amount {
             return Err(ErrorCode::LowUsdc.into());
         }
 
         // Transfer user's USDC to vault USDC account.
-        token::transfer(ctx.accounts.into_transfer_context(), amount)?;
+        // Calculate USDC tokens due based on the redeem:usdc exchange rate P_z = ( N_u / N_z ).
+        // n_u = P_z * n_z
+        // If N_z == 0, then set P_z = 1
+        let mut redeemable_amount = usdc_amount as u128;
+        if (ctx.accounts.redeemable_mint.supply > 0){
+            redeemable_amount = (usdc_amount as u128)
+            .checked_mul(ctx.accounts.redeemable_mint.supply as u128)
+            .unwrap()
+            .checked_div(ctx.accounts.vault_usdc.amount as u128)
+            .unwrap();
+        }
+        token::transfer(ctx.accounts.into_transfer_context(), redeemable_amount as u64)?;
 
         // Mint Redeemable to user Redeemable account.
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
@@ -100,7 +111,7 @@ pub mod vault {
             bump = ctx.accounts.vault.bumps.vault_authority
         );
         let signer = &[&seeds[..]];
-        token::mint_to(ctx.accounts.into_mint_to_context(signer), amount)?;
+        token::mint_to(ctx.accounts.into_mint_to_context(signer), usdc_amount)?;
 
         Ok(())
     }
@@ -109,17 +120,17 @@ pub mod vault {
     pub fn exchange_redeemable_for_usdc(
         ctx: Context<ExchangeRedeemableForUsdc>,
         _bump: u8,
-        amount: u64,
+        redeemable_amount: u64,
     ) -> ProgramResult {
         msg!("EXCHANGE REDEEMABLE FOR USDC");
         // While token::burn will check this, we prefer a verbose err msg.
-        if ctx.accounts.user_redeemable.amount < amount {
+        if ctx.accounts.user_redeemable.amount < redeemable_amount {
             return Err(ErrorCode::LowRedeemable.into());
         }
 
-        // Calculate USDC tokens due based on % ownership of redeemable pool.
-        // usdc_amount = (redeemable_amount / redeemable_mint ) / vault_usdc_amount
-        let usdc_amount = (amount as u128)
+        // Calculate USDC tokens due based on the redeem:usdc exchange rate P_z = ( N_u / N_z ).
+        // n_u = P_z * n_z
+        let usdc_amount = (redeemable_amount as u128)
             .checked_mul(ctx.accounts.vault_usdc.amount as u128)
             .unwrap()
             .checked_div(ctx.accounts.redeemable_mint.supply as u128)
@@ -133,7 +144,7 @@ pub mod vault {
         let signer = &[&seeds[..]];
 
         // Burn the user's redeemable tokens.
-        token::burn(ctx.accounts.into_burn_context(signer), amount)?;
+        token::burn(ctx.accounts.into_burn_context(signer), redeemable_amount)?;
 
         // Transfer USDC from vault account to the user's usdc account.
         token::transfer(
