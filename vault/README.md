@@ -22,9 +22,17 @@ The more the vault earns in USDC terms, the higher the exchange rate goes - mean
 
 ### Exchange Rates
 
-Deposit: $1\ zToken = 1\ usdc$
+$P_z = \frac{N_u}{N_z}$
 
-Withdraw: $1\ zToken = \frac{usdc_{total}}{zToken_{total}}\ usdc$
+Deposit: $n_z = \frac{n_u}{P_z}$
+
+Withdraw: $n_u = P_z * n_z$
+
+where:
+* $P_z$ is the zToken price
+* $P_u$ = price of USDC = 1
+* $N_z$ = total vault mint of zTokens
+* $N_u$ = total vault USDC balance
 
 ## Epoch Schedule
 
