@@ -102,6 +102,17 @@ pub fn get_initial_margin_per_lot(
         },
         _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
     };
+
+    if product == Kind::Put && side == Side::Ask {
+        let sell_put_cap_margin = (strike as u128)
+            .checked_mul(margin_parameters.option_short_put_cap_percentage as u128)
+            .unwrap()
+            .checked_div(NATIVE_PRECISION_DENOMINATOR)
+            .unwrap();
+
+        return Ok(u64::try_from(initial_margin.min(sell_put_cap_margin)).unwrap());
+    }
+
     Ok(u64::try_from(initial_margin).unwrap())
 }
 
@@ -169,6 +180,17 @@ pub fn get_maintenance_margin_per_lot(
         }
         _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
     };
+
+    if product == Kind::Put && !long {
+        let sell_put_cap_margin = (strike as u128)
+            .checked_mul(margin_parameters.option_short_put_cap_percentage as u128)
+            .unwrap()
+            .checked_div(NATIVE_PRECISION_DENOMINATOR)
+            .unwrap();
+
+        return Ok(u64::try_from(maintenance_margin.min(sell_put_cap_margin)).unwrap());
+    }
+
     Ok(u64::try_from(maintenance_margin).unwrap())
 }
 
