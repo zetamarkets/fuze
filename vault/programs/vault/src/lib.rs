@@ -17,6 +17,7 @@ use crate::context::*;
 use crate::zeta_account::*;
 use crate::zeta_constants::*;
 use crate::zeta_utils::*;
+use constants::*;
 
 declare_id!("stdcqm7Cc8Bj1JZfBPYY8Hyzqqjabm7ugk6k74QEm1B");
 
@@ -33,7 +34,7 @@ pub mod vault {
         bumps: VaultBumps,
         epoch_times: EpochTimes,
     ) -> ProgramResult {
-        msg!("INITIALIZE vault");
+        msg!("Initialize vault");
 
         let vault = &mut ctx.accounts.vault;
 
@@ -73,21 +74,19 @@ pub mod vault {
     }
 
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
-    pub fn init_user_redeemable(ctx: Context<InitUserRedeemable>) -> ProgramResult {
-        msg!("INIT USER REDEEMABLE");
+    pub fn initialize_user_redeemable_token_account(
+        ctx: Context<InitUserRedeemableTokenAccount>,
+    ) -> ProgramResult {
+        msg!("Initialize user redeemable token account");
         Ok(())
     }
 
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
-    pub fn exchange_usdc_for_redeemable(
-        ctx: Context<ExchangeUsdcForRedeemable>,
-        _bump: u8,
-        usdc_amount: u64,
-    ) -> ProgramResult {
-        msg!("EXCHANGE USDC FOR REDEEMABLE");
+    pub fn deposit_vault(ctx: Context<DepositVault>, _bump: u8, usdc_amount: u64) -> ProgramResult {
+        msg!("Deposit into vault");
         // While token::transfer will check this, we prefer a verbose err msg.
         if ctx.accounts.user_usdc.amount < usdc_amount {
-            return Err(ErrorCode::LowUsdc.into());
+            return Err(ErrorCode::InsufficientUsdcBalance.into());
         }
 
         // Transfer user's USDC to vault USDC account.
@@ -95,14 +94,17 @@ pub mod vault {
         // n_u = P_z * n_z
         // If N_z == 0, then set P_z = 1
         let mut redeemable_amount = usdc_amount as u128;
-        if (ctx.accounts.redeemable_mint.supply > 0){
+        if (ctx.accounts.redeemable_mint.supply > 0) {
             redeemable_amount = (usdc_amount as u128)
-            .checked_mul(ctx.accounts.redeemable_mint.supply as u128)
-            .unwrap()
-            .checked_div(ctx.accounts.vault_usdc.amount as u128)
-            .unwrap();
+                .checked_mul(ctx.accounts.redeemable_mint.supply as u128)
+                .unwrap()
+                .checked_div(ctx.accounts.vault_usdc.amount as u128)
+                .unwrap();
         }
-        token::transfer(ctx.accounts.into_transfer_context(), redeemable_amount as u64)?;
+        token::transfer(
+            ctx.accounts.into_transfer_context(),
+            redeemable_amount as u64,
+        )?;
 
         // Mint Redeemable to user Redeemable account.
         let vault_name = ctx.accounts.vault.vault_name.as_ref();
@@ -117,15 +119,15 @@ pub mod vault {
     }
 
     #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
-    pub fn exchange_redeemable_for_usdc(
-        ctx: Context<ExchangeRedeemableForUsdc>,
+    pub fn withdraw_vault(
+        ctx: Context<WithdrawVault>,
         _bump: u8,
         redeemable_amount: u64,
     ) -> ProgramResult {
-        msg!("EXCHANGE REDEEMABLE FOR USDC");
+        msg!("Withdraw from vault");
         // While token::burn will check this, we prefer a verbose err msg.
         if ctx.accounts.user_redeemable.amount < redeemable_amount {
-            return Err(ErrorCode::LowRedeemable.into());
+            return Err(ErrorCode::InsufficientRedeemableBalance.into());
         }
 
         // Calculate USDC tokens due based on the redeem:usdc exchange rate P_z = ( N_u / N_z ).
@@ -161,24 +163,6 @@ pub mod vault {
         Ok(())
     }
 
-    #[access_control(deposit_withdraw_phase(&ctx.accounts.vault))]
-    pub fn withdraw_vault_usdc(ctx: Context<WithdrawVaultUsdc>) -> ProgramResult {
-        msg!("WITHDRAW vault USDC");
-        // Transfer total USDC from vault account to vault_admin account.
-        let vault_name = ctx.accounts.vault.vault_name.as_ref();
-        let seeds = vault_authority_seeds!(
-            vault_name = vault_name,
-            bump = ctx.accounts.vault.bumps.vault_authority
-        );
-        let signer = &[&seeds[..]];
-        token::transfer(
-            ctx.accounts.into_transfer_context(signer),
-            ctx.accounts.vault_usdc.amount,
-        )?;
-
-        Ok(())
-    }
-
     pub fn initialize_zeta_margin_account(
         ctx: Context<InitializeZetaMarginAccount>,
     ) -> ProgramResult {
@@ -200,6 +184,7 @@ pub mod vault {
             vault_name = vault_name,
             bump = ctx.accounts.vault.bumps.vault_authority
         );
+        msg!("Deposit into zeta margin account");
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.deposit_cpi_accounts.clone(),
@@ -214,6 +199,7 @@ pub mod vault {
             vault_name = vault_name,
             bump = ctx.accounts.vault.bumps.vault_authority
         );
+        msg!("Withdraw from zeta margin account");
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.withdraw_cpi_accounts.clone(),
@@ -228,6 +214,7 @@ pub mod vault {
             vault_name = vault_name,
             bump = ctx.accounts.vault.bumps.vault_authority
         );
+        msg!("Initialize zeta open orders account");
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_open_orders_cpi_accounts.clone(),
@@ -282,7 +269,7 @@ pub mod vault {
 
     #[access_control(epoch_over(&ctx.accounts.vault))]
     pub fn rollover_vault(ctx: Context<RolloverVault>) -> ProgramResult {
-        msg!("ROLLOVER vault");
+        msg!("Roll over vault");
         let vault = &mut ctx.accounts.vault;
         vault.epoch_times.start_epoch = vault
             .epoch_times
@@ -324,7 +311,7 @@ macro_rules! vault_authority_seeds {
         vault_name = $vault_name:expr,
         bump = $bump:expr
     ) => {
-        &[b"vault_authority", $vault_name.strip(), &[$bump]]
+        &[VAULT_AUTHORITY_SEED.as_bytes(), $vault_name.strip(), &[$bump]]
     };
 }
 
@@ -363,10 +350,10 @@ pub enum ErrorCode {
     EndEpochTime,
     #[msg("Epoch has not finished yet")]
     EpochNotOver,
-    #[msg("Insufficient USDC")]
-    LowUsdc,
-    #[msg("Insufficient redeemable tokens")]
-    LowRedeemable,
+    #[msg("Insufficient USDC balance")]
+    InsufficientUsdcBalance,
+    #[msg("Insufficient redeemable token balance")]
+    InsufficientRedeemableBalance,
     #[msg("USDC total and redeemable total don't match")]
     UsdcNotEqRedeem,
     #[msg("Given nonce is invalid")]
@@ -392,7 +379,12 @@ fn validate_epoch_times(epoch_times: EpochTimes) -> ProgramResult {
         && epoch_times.end_deposits < epoch_times.start_auction
         && epoch_times.start_auction < epoch_times.end_auction
         && epoch_times.end_auction < epoch_times.start_settlement
-        && epoch_times.start_settlement < epoch_times.end_epoch)
+        && epoch_times.start_settlement < epoch_times.end_epoch
+        && epoch_times.epoch_cadence
+            >= (epoch_times
+                .end_epoch
+                .checked_sub(epoch_times.start_epoch)
+                .unwrap() as u64))
     {
         return Err(ErrorCode::SeqTimes.into());
     }
@@ -441,14 +433,6 @@ fn epoch_over(vault: &Vault) -> ProgramResult {
         return Err(ErrorCode::EpochNotOver.into());
     }
     Ok(())
-}
-
-fn unsigned_abs_diff(a: u64, b: u64) -> Option<u64> {
-    if a > b {
-        a.checked_sub(b)
-    } else {
-        b.checked_sub(a)
-    }
 }
 
 /// Trait to allow trimming ascii whitespace from a &[u8].
