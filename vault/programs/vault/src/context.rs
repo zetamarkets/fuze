@@ -49,16 +49,15 @@ pub struct InitializeVault<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// TODO: bumps aren't getting checked, implement
 #[derive(Accounts)]
-pub struct InitUserRedeemable<'info> {
+pub struct InitUserRedeemableTokenAccount<'info> {
     // User Accounts
     #[account(mut)]
     pub user_authority: Signer<'info>,
     #[account(
         init,
         token::mint = redeemable_mint,
-        token::authority = vault_authority,
+        token::authority = user_authority,
         seeds = [USER_REDEEMABLE_SEED.as_bytes(),
             vault.vault_name.as_ref().strip(),
             user_authority.key().as_ref()],
@@ -84,7 +83,7 @@ pub struct InitUserRedeemable<'info> {
 
 #[derive(Accounts)]
 #[instruction(bump: u8)]
-pub struct ExchangeUsdcForRedeemable<'info> {
+pub struct DepositVault<'info> {
     // User Accounts
     pub user_authority: Signer<'info>,
     #[account(
@@ -132,7 +131,7 @@ pub struct ExchangeUsdcForRedeemable<'info> {
 
 #[derive(Accounts)]
 #[instruction(bump: u8)]
-pub struct ExchangeRedeemableForUsdc<'info> {
+pub struct WithdrawVault<'info> {
     // User Accounts
     #[account(mut)]
     pub user_authority: Signer<'info>,
@@ -176,39 +175,6 @@ pub struct ExchangeRedeemableForUsdc<'info> {
     )]
     pub vault_usdc: Box<Account<'info, TokenAccount>>,
     // Programs and Sysvars
-    pub token_program: Program<'info, Token>,
-}
-
-#[derive(Accounts)]
-pub struct WithdrawVaultUsdc<'info> {
-    // vault Authority Accounts
-    pub vault_admin: Signer<'info>,
-    // Doesn't need to be an ATA because it might be a DAO account
-    #[account(
-        mut,
-        constraint = vault_admin_usdc.owner == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
-        constraint = vault_admin_usdc.mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
-    )]
-    pub vault_admin_usdc: Box<Account<'info, TokenAccount>>,
-    // vault Accounts
-    #[account(
-        seeds = [vault.vault_name.as_ref().strip()],
-        bump = vault.bumps.vault,
-        constraint = vault.vault_admin == vault_admin.key() @ ErrorCode::InvalidVaultAdmin,
-        constraint = vault.usdc_mint == usdc_mint.key() @ ErrorCode::InvalidUsdcMint
-    )]
-    pub vault: Box<Account<'info, Vault>>,
-    #[account(seeds = [VAULT_AUTHORITY_SEED.as_bytes(), vault.vault_name.as_ref().strip()],
-        bump = vault.bumps.vault_authority)]
-    pub vault_authority: AccountInfo<'info>,
-    pub usdc_mint: Box<Account<'info, Mint>>,
-    #[account(
-        mut,
-        seeds = [VAULT_USDC_SEED.as_bytes(), vault.vault_name.as_ref().strip()],
-        bump = vault.bumps.vault_usdc
-    )]
-    pub vault_usdc: Box<Account<'info, TokenAccount>>,
-    // Program and Sysvars
     pub token_program: Program<'info, Token>,
 }
 
@@ -350,7 +316,7 @@ pub struct VaultBumps {
 
 // CPI context traits
 
-impl<'info> ExchangeUsdcForRedeemable<'info> {
+impl<'info> DepositVault<'info> {
     pub fn into_transfer_context(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
         let cpi_accounts = Transfer {
             from: self.user_usdc.to_account_info(),
@@ -375,7 +341,7 @@ impl<'info> ExchangeUsdcForRedeemable<'info> {
     }
 }
 
-impl<'info> ExchangeRedeemableForUsdc<'info> {
+impl<'info> WithdrawVault<'info> {
     pub fn into_burn_context<'a, 'b, 'c>(
         &self,
         signer: &'a [&'b [&'c [u8]]],
@@ -383,7 +349,7 @@ impl<'info> ExchangeRedeemableForUsdc<'info> {
         let cpi_accounts = Burn {
             mint: self.redeemable_mint.to_account_info(),
             to: self.user_redeemable.to_account_info(),
-            authority: self.vault_authority.to_account_info(),
+            authority: self.user_authority.to_account_info(),
         };
         let cpi_program = self.token_program.to_account_info();
         CpiContext::new_with_signer(cpi_program, cpi_accounts, signer)
@@ -409,21 +375,6 @@ impl<'info> ExchangeRedeemableForUsdc<'info> {
         let cpi_accounts = CloseAccount {
             account: self.user_redeemable.to_account_info(),
             destination: self.user_authority.to_account_info(),
-            authority: self.vault_authority.to_account_info(),
-        };
-        let cpi_program = self.token_program.to_account_info();
-        CpiContext::new_with_signer(cpi_program, cpi_accounts, signer)
-    }
-}
-
-impl<'info> WithdrawVaultUsdc<'info> {
-    pub fn into_transfer_context<'a, 'b, 'c>(
-        &self,
-        signer: &'a [&'b [&'c [u8]]],
-    ) -> CpiContext<'a, 'b, 'c, 'info, Transfer<'info>> {
-        let cpi_accounts = Transfer {
-            from: self.vault_usdc.to_account_info(),
-            to: self.vault_admin_usdc.to_account_info(),
             authority: self.vault_authority.to_account_info(),
         };
         let cpi_program = self.token_program.to_account_info();

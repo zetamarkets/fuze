@@ -48,7 +48,6 @@ describe("vault", () => {
   // are available to the client.
   let usdcMintAccount: Token;
   let usdcMint: anchor.web3.PublicKey;
-  let vaultAdminUsdc: anchor.web3.PublicKey;
   let vaultMargin;
 
   it("Initializes the state of the world", async () => {
@@ -93,10 +92,7 @@ describe("vault", () => {
       provider.connection,
       usdcMint,
       TOKEN_PROGRAM_ID,
-      userKeypair // TODO: not sure this is the way to go?
-    );
-    vaultAdminUsdc = await usdcMintAccount.createAssociatedTokenAccount(
-      vaultAdmin.publicKey
+      (provider.wallet as anchor.Wallet).payer
     );
   });
 
@@ -130,18 +126,18 @@ describe("vault", () => {
 
     [redeemableMint, redeemableMintBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("redeemable_mint"), Buffer.from(vaultName)],
+        [Buffer.from("redeemable-mint"), Buffer.from(vaultName)],
         program.programId
       );
 
     [vaultUsdc, vaultUsdcBump] = await anchor.web3.PublicKey.findProgramAddress(
-      [Buffer.from("vault_usdc"), Buffer.from(vaultName)],
+      [Buffer.from("vault-usdc"), Buffer.from(vaultName)],
       program.programId
     );
 
     [vaultAuthority, vaultAuthorityBump] =
       await anchor.web3.PublicKey.findProgramAddress(
-        [Buffer.from("vault_authority"), Buffer.from(vaultName)],
+        [Buffer.from("vault-authority"), Buffer.from(vaultName)],
         program.programId
       );
 
@@ -194,14 +190,16 @@ describe("vault", () => {
     );
 
     // SOL balance for vault authority PDA is `vaultLamports`
-    let vaultAuthorityAccount = await connection.getAccountInfo(vaultAuthority);
-    assert.ok(vaultAuthorityAccount.lamports == vaultLamports.toNumber());
+    let vaultAuthorityAccount = await provider.connection.getAccountInfo(
+      vaultAuthority
+    );
+    assert.equal(vaultAuthorityAccount.lamports, vaultLamports.toNumber());
     // USDC in vault == 0
     let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.ok(vaultUsdcAccount.amount.eq(new anchor.BN(0)));
+    assert.equal(vaultUsdcAccount.amount.toNumber(), 0);
     // Redeemable tokens minted == 0
     let redeemableMintInfo = await redeemableMintAccount.getMintInfo();
-    assert.ok(redeemableMintInfo.supply.eq(new anchor.BN(0)));
+    assert.equal(redeemableMintInfo.supply.toNumber(), 0);
   });
 
   it("Init Zeta margin for vault account via CPI", async () => {
@@ -211,7 +209,6 @@ describe("vault", () => {
       vaultAuthority
     );
 
-    // TODO: temporary workaround, will need to avoid PDA authority until issue #350 is fixed
     const tx = await program.rpc.initializeZetaMarginAccount({
       accounts: {
         zetaProgram: Exchange.programId,
@@ -259,14 +256,14 @@ describe("vault", () => {
     [userRedeemable, userRedeemableBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
-          Buffer.from("user_redeemable"),
+          Buffer.from("user-redeemable"),
           Buffer.from(vaultName),
           userKeypair.publicKey.toBuffer(),
         ],
         program.programId
       );
 
-    await program.rpc.exchangeUsdcForRedeemable(
+    await program.rpc.depositVault(
       userRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(firstDeposit)),
       {
@@ -282,7 +279,7 @@ describe("vault", () => {
           tokenProgram: TOKEN_PROGRAM_ID,
         },
         instructions: [
-          program.instruction.initUserRedeemable({
+          program.instruction.initializeUserRedeemableTokenAccount({
             accounts: {
               userAuthority: userKeypair.publicKey,
               userRedeemable,
@@ -350,14 +347,14 @@ describe("vault", () => {
     [secondUserRedeemable, secondUserRedeemableBump] =
       await anchor.web3.PublicKey.findProgramAddress(
         [
-          Buffer.from("user_redeemable"),
+          Buffer.from("user-redeemable"),
           Buffer.from(vaultName),
           secondUserKeypair.publicKey.toBuffer(),
         ],
         program.programId
       );
 
-    await program.rpc.exchangeUsdcForRedeemable(
+    await program.rpc.depositVault(
       secondUserRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(secondDeposit)),
       {
@@ -373,7 +370,7 @@ describe("vault", () => {
           tokenProgram: TOKEN_PROGRAM_ID,
         },
         instructions: [
-          program.instruction.initUserRedeemable({
+          program.instruction.initializeUserRedeemableTokenAccount({
             accounts: {
               userAuthority: secondUserKeypair.publicKey,
               userRedeemable: secondUserRedeemable,
@@ -716,7 +713,7 @@ describe("vault", () => {
     if (Date.now() < epochTimes.startEpoch.toNumber() * 1000) {
       await sleep(epochTimes.startEpoch.toNumber() * 1000 - Date.now() + 3000);
     }
-    await program.rpc.exchangeRedeemableForUsdc(
+    await program.rpc.withdrawVault(
       userRedeemableBump,
       new anchor.BN(zetaUtils.convertDecimalToNativeInteger(firstWithdrawal)),
       {
@@ -745,34 +742,6 @@ describe("vault", () => {
     assert.equal(
       zetaUtils.convertNativeBNToDecimal(userUsdcAccount.amount),
       firstWithdrawal
-    );
-  });
-
-  it("Withdraws total USDC from vault account", async () => {
-    await program.rpc.withdrawVaultUsdc({
-      accounts: {
-        vaultAdmin: vaultAdmin.publicKey,
-        vaultAdminUsdc,
-        vault,
-        vaultAuthority,
-        usdcMint,
-        vaultUsdc,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      },
-      signers: [vaultAdmin],
-    });
-
-    let vaultUsdcAccount = await usdcMintAccount.getAccountInfo(vaultUsdc);
-    assert.equal(
-      zetaUtils.convertNativeBNToDecimal(vaultUsdcAccount.amount),
-      0
-    );
-    let vaultAdminUsdcAccount = await usdcMintAccount.getAccountInfo(
-      vaultAdminUsdc
-    );
-    assert.ok(
-      zetaUtils.convertNativeBNToDecimal(vaultAdminUsdcAccount.amount),
-      totalVaultUsdc
     );
   });
 
