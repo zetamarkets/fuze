@@ -24,11 +24,12 @@ FuZe is Zeta's cross-program integration ecosystem.
 This repository contains the Zeta Cross Program Invocation (CPI) interface as well as a number of helpful examples and reference implementations on how to compose (fuse) with the Zeta DEX.
 
 ## Networks
+To change the network, one must update both the `Anchor.toml` as well as the program ID in the `.env` to the desired network. 
 
-| Key     |                     Value                      |
-| ------- | :--------------------------------------------: |
-| Devnet  |     <span style="color:green">Live</span>      |
-| Mainnet | <span style="color:grey">Coming soon...</span> |
+| Network |                                Program ID                                |
+| ------- | :---------------------------------------------------------------------------: |
+| Devnet  | <span style="color:green">BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7</span> |
+| Mainnet | <span style="color:green">ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD</span>  |
 
 ## Cross Program Invocations
 
