@@ -19,25 +19,9 @@ describe("vault", () => {
   console.log(vaultAdmin.publicKey.toString());
   console.log(userKeypair.publicKey.toString());
 
-  // Configure the client to use the local cluster.
-  const url = "https://api.devnet.solana.com";
-  if (url === undefined) {
-    throw new Error("ANCHOR_PROVIDER_URL is not defined");
-  }
-  const connection = new anchor.web3.Connection(
-    url,
-    zetaUtils.defaultCommitment()
-  );
-  const provider = new anchor.Provider(
-    connection,
-    new anchor.Wallet(userKeypair),
-    zetaUtils.defaultCommitment()
-  );
+  // Configure the client to use the specified cluster.
+  const provider = anchor.Provider.env();
   anchor.setProvider(provider);
-  const publicConnection = new anchor.web3.Connection(
-    "https://api.devnet.solana.com",
-    zetaUtils.defaultCommitment()
-  );
 
   const program = anchor.workspace.Vault as anchor.Program<Vault>;
   const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
@@ -62,8 +46,8 @@ describe("vault", () => {
     );
 
     // Airdrop some SOL to the vault authority
-    await publicConnection.confirmTransaction(
-      await publicConnection.requestAirdrop(
+    await provider.connection.confirmTransaction(
+      await provider.connection.requestAirdrop(
         vaultAdmin.publicKey,
         1.0 * anchor.web3.LAMPORTS_PER_SOL // 1 SOL
       ),
