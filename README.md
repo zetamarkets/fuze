@@ -83,5 +83,5 @@ Reference implementation for a put selling vault that uses the Zeta DEX under th
 - [x] Examples on how to read and deserialize Zeta account data
 - [x] Typescript client examples
 - [ ] Proper tests (current tests don't really check and validate state)
-- [ ] Put selling vault sample
+- [x] Put selling vault sample
 - [ ] Multi-leg product vault e.g. straddles
