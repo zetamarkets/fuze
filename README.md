@@ -28,7 +28,7 @@ This repository contains the Zeta Cross Program Invocation (CPI) interface as we
 | Key     |                     Value                      |
 | ------- | :--------------------------------------------: |
 | Devnet  |     <span style="color:green">Live</span>      |
-| Mainnet | <span style="color:grey">Coming soon...</span> |
+| Mainnet | <span style="color:green">Live</span> |
 
 ## Cross Program Invocations
 
