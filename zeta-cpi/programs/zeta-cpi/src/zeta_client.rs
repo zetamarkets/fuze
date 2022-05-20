@@ -8,11 +8,17 @@ use cpi_interface::global_interface;
 
 #[global_interface]
 pub trait ZetaInterface<'info, T: Accounts<'info>> {
-    fn initialize_margin_account(ctx: Context<T>, nonce: u8) -> ProgramResult;
+    fn initialize_margin_account(ctx: Context<T>) -> ProgramResult;
     fn deposit(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn withdraw(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn initialize_open_orders(ctx: Context<T>, nonce: u8, _map_nonce: u8) -> ProgramResult;
-    fn place_order(ctx: Context<T>, price: u64, size: u64, side: Side, client_order_id: Option<u64>) -> ProgramResult;
+    fn place_order(
+        ctx: Context<T>,
+        price: u64,
+        size: u64,
+        side: Side,
+        client_order_id: Option<u64>,
+    ) -> ProgramResult;
     fn cancel_order(ctx: Context<T>, side: Side, order_id: u128) -> ProgramResult;
 }
 
@@ -20,16 +26,8 @@ pub fn initialize_margin_account<'info>(
     zeta_program: AccountInfo<'info>,
     cpi_accounts: InitializeMarginAccount<'info>,
 ) -> ProgramResult {
-    let (_pda, nonce) = Pubkey::find_program_address(
-        &[
-            MARGIN_SEED.as_ref(),
-            cpi_accounts.zeta_group.key.as_ref(),
-            cpi_accounts.authority.key.as_ref(),
-        ],
-        &zeta_program.key.clone(),
-    );
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
-    zeta_interface::initialize_margin_account(cpi_ctx, nonce)
+    zeta_interface::initialize_margin_account(cpi_ctx)
 }
 
 pub fn deposit<'info>(

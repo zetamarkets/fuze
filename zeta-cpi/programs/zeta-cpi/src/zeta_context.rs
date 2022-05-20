@@ -8,8 +8,9 @@ use anchor_spl::token::Token;
 pub struct InitializeMarginAccount<'info> {
     #[account(mut)]
     pub margin_account: AccountInfo<'info>,
-    #[account(mut)]
     pub authority: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub zeta_program: AccountInfo<'info>,
     pub system_program: Program<'info, System>,
     pub zeta_group: AccountInfo<'info>,
