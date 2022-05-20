@@ -311,7 +311,11 @@ macro_rules! vault_authority_seeds {
         vault_name = $vault_name:expr,
         bump = $bump:expr
     ) => {
-        &[VAULT_AUTHORITY_SEED.as_bytes(), $vault_name.strip(), &[$bump]]
+        &[
+            VAULT_AUTHORITY_SEED.as_bytes(),
+            $vault_name.strip(),
+            &[$bump],
+        ]
     };
 }
 

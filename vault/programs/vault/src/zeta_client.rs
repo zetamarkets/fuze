@@ -8,7 +8,7 @@ use cpi_interface::global_interface;
 
 #[global_interface]
 pub trait ZetaInterface<'info, T: Accounts<'info>> {
-    fn initialize_margin_account(ctx: Context<T>, nonce: u8) -> ProgramResult;
+    fn initialize_margin_account(ctx: Context<T>) -> ProgramResult;
     fn deposit(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn withdraw(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn initialize_open_orders(ctx: Context<T>, nonce: u8, _map_nonce: u8) -> ProgramResult;
@@ -27,19 +27,11 @@ pub fn initialize_margin_account<'info>(
     mut cpi_accounts: InitializeMarginAccount<'info>,
     seeds: &[&[u8]],
 ) -> ProgramResult {
-    let (_pda, nonce) = Pubkey::find_program_address(
-        &[
-            MARGIN_SEED.as_ref(),
-            cpi_accounts.zeta_group.key.as_ref(),
-            cpi_accounts.authority.key.as_ref(),
-        ],
-        &zeta_program.key.clone(),
-    );
-    // Need to do this so that anchor recognises the PDA authority as a signer
-    cpi_accounts.authority.is_signer = true;
     let signer = &[&seeds[..]];
+    cpi_accounts.authority.is_signer = true;
+    cpi_accounts.payer.is_signer = true;
     let cpi_ctx = CpiContext::new_with_signer(zeta_program, cpi_accounts, signer);
-    zeta_interface::initialize_margin_account(cpi_ctx, nonce)
+    zeta_interface::initialize_margin_account(cpi_ctx)
 }
 
 pub fn deposit<'info>(
