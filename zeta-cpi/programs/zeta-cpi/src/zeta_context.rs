@@ -62,9 +62,9 @@ pub struct InitializeOpenOrders<'info> {
     pub open_orders: AccountInfo<'info>,
     #[account(mut)]
     pub margin_account: AccountInfo<'info>,
-    // Marked mutable since it pays
-    #[account(mut)]
     pub authority: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub market: AccountInfo<'info>,
     pub serum_authority: AccountInfo<'info>,
     #[account(mut)]
