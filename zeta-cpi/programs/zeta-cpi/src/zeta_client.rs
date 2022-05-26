@@ -11,7 +11,7 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
     fn initialize_margin_account(ctx: Context<T>) -> ProgramResult;
     fn deposit(ctx: Context<T>, amount: u64) -> ProgramResult;
     fn withdraw(ctx: Context<T>, amount: u64) -> ProgramResult;
-    fn initialize_open_orders(ctx: Context<T>, nonce: u8, _map_nonce: u8) -> ProgramResult;
+    fn initialize_open_orders(ctx: Context<T>) -> ProgramResult;
     fn place_order(
         ctx: Context<T>,
         price: u64,
@@ -52,21 +52,8 @@ pub fn initialize_open_orders<'info>(
     zeta_program: AccountInfo<'info>,
     cpi_accounts: InitializeOpenOrders<'info>,
 ) -> ProgramResult {
-    let (_, nonce) = Pubkey::find_program_address(
-        &[
-            OPEN_ORDERS_SEED.as_bytes(),
-            cpi_accounts.dex_program.key.as_ref(),
-            cpi_accounts.market.key.as_ref(),
-            cpi_accounts.authority.key.as_ref(),
-        ],
-        &zeta_program.key.clone(),
-    );
-    let (_, map_nonce) = Pubkey::find_program_address(
-        &[cpi_accounts.open_orders.key.as_ref()],
-        &zeta_program.key.clone(),
-    );
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
-    zeta_interface::initialize_open_orders(cpi_ctx, nonce, map_nonce)
+    zeta_interface::initialize_open_orders(cpi_ctx)
 }
 
 pub fn place_order<'info>(
