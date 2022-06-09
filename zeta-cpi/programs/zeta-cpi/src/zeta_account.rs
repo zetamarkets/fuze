@@ -118,14 +118,14 @@ pub struct ZetaGroup {
 
 #[zero_copy]
 pub struct HaltState {
-    halted: bool,
-    spot_price: u64, // Set with precision 6.
-    timestamp: u64,
-    mark_prices_set: [bool; 2],
+    _halted: bool,
+    _spot_price: u64, // Set with precision 6.
+    _timestamp: u64,
+    _mark_prices_set: [bool; 2],
     _mark_prices_set_padding: [bool; 4],
-    market_nodes_cleaned: [bool; 2],
+    _market_nodes_cleaned: [bool; 2],
     _market_nodes_cleaned_padding: [bool; 4],
-    market_cleaned: [bool; 46],
+    _market_cleaned: [bool; 46],
     _market_cleaned_padding: [bool; 92],
 } // 1 + 8 + 8 + 6 + 6 + 46 + 92 = 167
 
@@ -328,120 +328,34 @@ pub struct Product {
 
 #[zero_copy]
 #[derive(Default)]
+#[repr(packed)]
 pub struct Position {
-    pub position: i64,
+    pub size: i64,
     pub cost_of_trades: u64,
-    pub closing_orders: u64,
-    pub opening_orders: [u64; 2],
-} // 8 + 8 + 8 + 16 = 40
+} // 16
 
 impl Position {
     pub fn check_open(&self, side: Side) -> bool {
-        (side == Side::Bid && self.position >= 0) || (side == Side::Ask && self.position <= 0)
+        match side {
+            Side::Bid => self.size >= 0,
+            Side::Ask => self.size <= 0,
+            _ => false,
+        }
     }
 
-    pub fn has_active_orders(&self) -> bool {
-        self.opening_orders[0] != 0 || self.opening_orders[1] != 0 || self.closing_orders != 0
+    pub fn empty(&self) -> bool {
+        self.size == 0 && self.cost_of_trades == 0
     }
 
-    pub fn get_initial_margin(
-        &self,
-        mark_price: u64,
-        product: &Product,
-        spot: u64,
-        margin_parameters: &MarginParameters,
-    ) -> u64 {
-        let initial_margin_requirement: u128 = match product.strike.get_strike() {
-            Ok(strike) => {
-                let mut long_init_margin: u128 = 0;
-                let mut short_init_margin: u128 = 0;
-                if self.opening_orders[0] > 0 {
-                    long_init_margin = (self.opening_orders[0] as u128)
-                        .checked_mul(
-                            get_initial_margin_per_lot(
-                                spot,
-                                strike,
-                                mark_price,
-                                product.kind,
-                                Side::Bid,
-                                margin_parameters,
-                            )
-                            .unwrap()
-                            .try_into()
-                            .unwrap(),
-                        )
-                        .unwrap();
-                }
-
-                if self.opening_orders[1] > 0 {
-                    short_init_margin = (self.opening_orders[1] as u128)
-                        .checked_mul(
-                            get_initial_margin_per_lot(
-                                spot,
-                                strike,
-                                mark_price,
-                                product.kind,
-                                Side::Ask,
-                                margin_parameters,
-                            )
-                            .unwrap()
-                            .try_into()
-                            .unwrap(),
-                        )
-                        .unwrap();
-                }
-                long_init_margin
-                    .checked_add(short_init_margin)
-                    .unwrap()
-                    .checked_div(POSITION_PRECISION_DENOMINATOR)
-                    .unwrap()
-            }
-            Err(_) => 0,
-        };
-        initial_margin_requirement.try_into().unwrap()
-    }
-
-    pub fn get_maintenance_margin(
-        &self,
-        mark_price: u64,
-        product: &Product,
-        spot: u64,
-        margin_parameters: &MarginParameters,
-    ) -> u64 {
-        let maintenance_margin_requirement = match product.strike.get_strike() {
-            Ok(strike) => {
-                let mut margin: u128 = 0;
-                if self.position != 0 {
-                    margin = (self.position.abs() as u128)
-                        .checked_mul(
-                            get_maintenance_margin_per_lot(
-                                spot,
-                                strike,
-                                mark_price,
-                                product.kind,
-                                self.position >= 0,
-                                margin_parameters,
-                            )
-                            .unwrap()
-                            .try_into()
-                            .unwrap(),
-                        )
-                        .unwrap()
-                        .checked_div(POSITION_PRECISION_DENOMINATOR)
-                        .unwrap()
-                }
-                margin
-            }
-            Err(_) => 0,
-        };
-        maintenance_margin_requirement.try_into().unwrap()
+    pub fn size_abs(&self) -> u64 {
+        self.size.abs() as u64
     }
 
     pub fn get_unrealized_pnl(&self, mark_price: u64) -> i64 {
-        if self.position == 0 {
+        if self.size == 0 {
             0
-        } else if self.position > 0 {
-            (self.position as i128)
+        } else if self.size > 0 {
+            (self.size as i128)
                 .checked_mul(mark_price as i128)
                 .unwrap()
                 .checked_div(POSITION_PRECISION_DENOMINATOR as i128)
@@ -451,7 +365,7 @@ impl Position {
                 .try_into()
                 .unwrap()
         } else {
-            (self.position as i128)
+            (self.size as i128)
                 .checked_mul(mark_price as i128)
                 .unwrap()
                 .checked_div(POSITION_PRECISION_DENOMINATOR as i128)
@@ -464,35 +378,175 @@ impl Position {
     }
 }
 
-#[account(zero_copy)]
-pub struct MarginAccount {
-    pub authority: Pubkey,
-    pub nonce: u8,
-    pub balance: u64,
-    pub force_cancel_flag: bool,
+#[zero_copy]
+#[derive(Default)]
+#[repr(packed)]
+pub struct OrderState {
+    pub closing_orders: u64,
+    pub opening_orders: [u64; 2],
+} // 24
 
-    pub open_orders_nonce: [u8; 138],
-    pub series_expiry: [u64; 6], // Tracks the expiration of this index, set to 0 if clean
-    pub positions: [Position; 46], // 138 * 40 = 5520
-    pub positions_padding: [Position; 92], // For future when we add more expiries.
+impl OrderState {
+    pub fn has_active_orders(&self) -> bool {
+        self.opening_orders[BID_ORDERS_INDEX] != 0
+            || self.opening_orders[ASK_ORDERS_INDEX] != 0
+            || self.closing_orders != 0
+    }
+}
 
-    pub rebalance_amount: i64,
-    pub _padding: [u8; 388],
-} // 32 + 1 + 8 + 1 + 138 + 48 + 40 * 138 + 8 = 5756 + 388 = 6144
+#[zero_copy]
+#[derive(Default)]
+#[repr(packed)]
+pub struct ProductLedger {
+    pub position: Position,
+    pub order_state: OrderState,
+} // 40
 
-impl MarginAccount {
-    pub fn get_positions_slice(&self, expiry_index: usize) -> &[Position] {
-        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
-        &self.positions[head..head + NUM_PRODUCTS_PER_SERIES]
+impl ProductLedger {
+    pub fn size(&self) -> i64 {
+        self.position.size
     }
 
+    pub fn empty(&self) -> bool {
+        self.position.empty() && !self.order_state.has_active_orders()
+    }
+
+    pub fn get_initial_margin(
+        &self,
+        mark_price: u64,
+        product: &Product,
+        spot: u64,
+        margin_parameters: &MarginParameters,
+    ) -> u64 {
+        let strike: u64 = match product.strike.get_strike() {
+            Ok(strike) => strike,
+            Err(_) => return 0,
+        };
+
+        let mut long_lots: u64 = self.order_state.opening_orders[BID_ORDERS_INDEX];
+        let mut short_lots: u64 = self.order_state.opening_orders[ASK_ORDERS_INDEX];
+        if self.position.size > 0 {
+            long_lots = long_lots.checked_add(self.position.size_abs()).unwrap();
+        } else if self.position.size < 0 {
+            short_lots = short_lots.checked_add(self.position.size_abs()).unwrap();
+        }
+
+        let mut long_initial_margin: u128 = 0;
+        let mut short_initial_margin: u128 = 0;
+
+        if long_lots > 0 {
+            long_initial_margin = (long_lots as u128)
+                .checked_mul(
+                    get_initial_margin_per_lot(
+                        spot,
+                        strike,
+                        mark_price,
+                        product.kind,
+                        Side::Bid,
+                        margin_parameters,
+                    )
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+
+        if short_lots > 0 {
+            short_initial_margin = (short_lots as u128)
+                .checked_mul(
+                    get_initial_margin_per_lot(
+                        spot,
+                        strike,
+                        mark_price,
+                        product.kind,
+                        Side::Ask,
+                        margin_parameters,
+                    )
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+
+        long_initial_margin
+            .checked_add(short_initial_margin)
+            .unwrap()
+            .checked_div(POSITION_PRECISION_DENOMINATOR)
+            .unwrap()
+            .try_into()
+            .unwrap()
+    }
+
+    pub fn get_maintenance_margin(
+        &self,
+        mark_price: u64,
+        product: &Product,
+        spot: u64,
+        margin_parameters: &MarginParameters,
+    ) -> u64 {
+        if self.position.size == 0 {
+            return 0;
+        }
+
+        let strike: u64 = match product.strike.get_strike() {
+            Ok(strike) => strike,
+            Err(_) => return 0,
+        };
+
+        let maintenance_margin_per_lot = get_maintenance_margin_per_lot(
+            spot,
+            strike,
+            mark_price,
+            product.kind,
+            self.position.size >= 0,
+            margin_parameters,
+        )
+        .unwrap();
+
+        (self.position.size_abs() as u128)
+            .checked_mul(maintenance_margin_per_lot as u128)
+            .unwrap()
+            .checked_div(POSITION_PRECISION_DENOMINATOR)
+            .unwrap() as u64
+    }
+}
+
+#[account(zero_copy)]
+#[repr(packed)]
+pub struct MarginAccount {
+    pub authority: Pubkey,                             // 32
+    pub nonce: u8,                                     // 1
+    pub balance: u64,                                  // 8
+    pub force_cancel_flag: bool,                       // 1
+    pub open_orders_nonce: [u8; 138],                  // 138
+    pub series_expiry: [u64; 6],                       // 48
+    pub product_ledgers: [ProductLedger; 46],          // 138 * 40 = 5520
+    pub _product_ledgers_padding: [ProductLedger; 92], //
+    pub rebalance_amount: i64,                         // 8
+    pub _padding: [u8; 388],                           // 388
+} // 6144
+
+impl MarginAccount {
+    pub fn get_product_ledgers_slice_mut(&mut self, expiry_index: usize) -> &mut [ProductLedger] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
+        &mut self.product_ledgers[head..head + NUM_PRODUCTS_PER_SERIES]
+    }
+
+    pub fn get_product_ledgers_slice(&self, expiry_index: usize) -> &[ProductLedger] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
+        &self.product_ledgers[head..head + NUM_PRODUCTS_PER_SERIES]
+    }
+
+    // Calculates the total initial margin for all open orders and positions.
     pub fn get_initial_margin(&self, greeks: &Greeks, zeta_group: &ZetaGroup, spot: u64) -> u64 {
         let initial_margin_requirement = self
-            .positions
+            .product_ledgers
             .iter()
             .enumerate()
-            .map(|(i, position)| {
-                position.get_initial_margin(
+            .map(|(i, ledger)| {
+                ledger.get_initial_margin(
                     greeks.mark_prices[i],
                     &zeta_group.products[i],
                     spot,
@@ -501,13 +555,10 @@ impl MarginAccount {
             })
             .sum();
 
-        msg!(
-            "Total Initial margin requirement = {}",
-            initial_margin_requirement
-        );
         initial_margin_requirement
     }
 
+    // Calculates the total maintenance margin for all positions only.
     pub fn get_maintenance_margin(
         &self,
         greeks: &Greeks,
@@ -515,11 +566,11 @@ impl MarginAccount {
         spot: u64,
     ) -> u64 {
         let maintenance_margin_requirement = self
-            .positions
+            .product_ledgers
             .iter()
             .enumerate()
-            .map(|(i, position)| {
-                position.get_maintenance_margin(
+            .map(|(i, product_ledgers)| {
+                product_ledgers.get_maintenance_margin(
                     greeks.mark_prices[i],
                     &zeta_group.products[i],
                     spot,
@@ -528,11 +579,19 @@ impl MarginAccount {
             })
             .sum();
 
-        msg!(
-            "Total Maintenance requirement = {}",
-            maintenance_margin_requirement
-        );
         maintenance_margin_requirement
+    }
+
+    pub fn get_unrealized_pnl(&self, greeks: &Greeks) -> i64 {
+        self.product_ledgers
+            .iter()
+            .enumerate()
+            .map(|(i, product_ledger)| {
+                (product_ledger
+                    .position
+                    .get_unrealized_pnl(greeks.mark_prices[i]) as i128) as i64
+            })
+            .sum()
     }
 
     pub fn get_margin_requirement(
@@ -544,54 +603,6 @@ impl MarginAccount {
         self.get_initial_margin(greeks, zeta_group, spot)
             .checked_add(self.get_maintenance_margin(greeks, zeta_group, spot))
             .unwrap()
-    }
-
-    pub fn get_unrealized_pnl(&self, greeks: &Greeks) -> i64 {
-        self.positions
-            .iter()
-            .enumerate()
-            .map(|(i, position)| {
-                (position.get_unrealized_pnl(greeks.mark_prices[i]) as i128) as i64
-            })
-            .sum()
-    }
-
-    pub fn check_margin_requirement(
-        &self,
-        greeks: &Greeks,
-        zeta_group: &ZetaGroup,
-        native_spot: u64,
-    ) -> bool {
-        let pnl = self.get_unrealized_pnl(&greeks);
-        let margin_requirement =
-            i64::try_from(self.get_margin_requirement(&greeks, &zeta_group, native_spot)).unwrap();
-        let buffer = i64::try_from(self.balance)
-            .unwrap()
-            .checked_add(pnl)
-            .unwrap()
-            .checked_sub(margin_requirement)
-            .unwrap();
-
-        msg!(
-            "MarginAccount: Pnl = {}, margin_requirement = {}, buffer = {}, balance = {}",
-            pnl,
-            margin_requirement,
-            buffer,
-            self.balance,
-        );
-
-        buffer > 0
-    }
-
-    pub fn has_active_orders(&self) -> bool {
-        let has_active_orders = self
-            .positions
-            .iter()
-            .find(|position| position.has_active_orders());
-        match has_active_orders {
-            Some(_) => true,
-            None => false,
-        }
     }
 }
 

@@ -86,3 +86,6 @@ pub const EPOCH_OFFSET: u64 = 115_200; // 32 hours to 8AM Friday UTC from 12am T
 pub const EPOCH_OFFSET: u64 = 0;
 
 pub const EPSILON_ERROR: u64 = 1_000;
+
+pub const BID_ORDERS_INDEX: usize = 0;
+pub const ASK_ORDERS_INDEX: usize = 1;
