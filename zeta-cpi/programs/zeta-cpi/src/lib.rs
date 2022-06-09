@@ -4,12 +4,14 @@ use rust_decimal::prelude::*;
 pub mod context;
 pub mod pyth_client;
 pub mod zeta_account;
+pub mod zeta_calculations;
 pub mod zeta_client;
 pub mod zeta_constants;
 pub mod zeta_context;
 pub mod zeta_utils;
 use crate::context::*;
 use crate::zeta_account::*;
+use crate::zeta_calculations::*;
 use crate::zeta_constants::*;
 use crate::zeta_utils::*;
 
@@ -62,7 +64,7 @@ pub mod zeta_cpi {
             price,
             size,
             side,
-            client_order_id
+            client_order_id,
         )
     }
 
@@ -159,13 +161,15 @@ pub mod zeta_cpi {
         msg!("Margin account balance: {:?}", margin_account.balance);
 
         // Position details for a given market index.
-        let position = margin_account.positions[market_index].position;
-        let cost_of_trades = margin_account.positions[market_index].cost_of_trades;
+        let size = margin_account.product_ledgers[market_index].position.size;
+        let cost_of_trades = margin_account.product_ledgers[market_index]
+            .position
+            .cost_of_trades;
 
         msg!(
-            "Margin account position for market index {}: Position={}, Cost of trades={}",
+            "Margin account position for market index {}: Size={}, Cost of trades={}",
             market_index,
-            position,
+            size,
             cost_of_trades
         );
 
@@ -183,6 +187,15 @@ pub mod zeta_cpi {
             maintenance_margin_requirement,
             total_margin_requirement
         );
+
+        let margin_account_state = calculate_margin_account_state(
+            &zeta_group,
+            &margin_account,
+            &greeks,
+            &ctx.accounts.oracle,
+        );
+
+        msg!("Margin account state: {:?}", margin_account_state);
 
         Ok(())
     }
