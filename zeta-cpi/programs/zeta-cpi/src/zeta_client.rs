@@ -19,6 +19,15 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
         side: Side,
         client_order_id: Option<u64>,
     ) -> ProgramResult;
+    fn place_order_v3(
+        ctx: Context<T>,
+        price: u64,
+        size: u64,
+        side: Side,
+        order_type: OrderType,
+        client_order_id: Option<u64>,
+        tag: Option<String>,
+    ) -> ProgramResult;
     fn cancel_order(ctx: Context<T>, side: Side, order_id: u128) -> ProgramResult;
 }
 
@@ -66,6 +75,20 @@ pub fn place_order<'info>(
 ) -> ProgramResult {
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
     zeta_interface::place_order(cpi_ctx, price, size, side, client_order_id)
+}
+
+pub fn place_order_v3<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: PlaceOrder<'info>,
+    price: u64,
+    size: u64,
+    side: Side,
+    order_type: OrderType,
+    client_order_id: Option<u64>,
+    tag: Option<String>, // Not stored, only used when sniffing the transactions
+) -> ProgramResult {
+    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    zeta_interface::place_order_v3(cpi_ctx, price, size, side, order_type, client_order_id, tag)
 }
 
 pub fn cancel_order<'info>(

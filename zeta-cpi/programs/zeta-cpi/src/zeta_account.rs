@@ -633,3 +633,11 @@ pub enum Side {
     Bid = 1,
     Ask = 2,
 }
+
+#[repr(u8)]
+#[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Eq, Clone, Copy)]
+pub enum OrderType {
+    Limit = 0,
+    PostOnly = 1,
+    FillOrKill = 2,
+}

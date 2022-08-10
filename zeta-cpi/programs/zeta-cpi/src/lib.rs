@@ -68,6 +68,27 @@ pub mod zeta_cpi {
         )
     }
 
+    pub fn place_order_v3(
+        ctx: Context<PlaceOrderCaller>,
+        price: u64,
+        size: u64,
+        side: Side,
+        order_type: OrderType,
+        client_order_id: Option<u64>,
+        tag: Option<String>,
+    ) -> ProgramResult {
+        zeta_client::place_order_v3(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.place_order_cpi_accounts.clone(),
+            price,
+            size,
+            side,
+            order_type,
+            client_order_id,
+            tag,
+        )
+    }
+
     pub fn cancel_order(
         ctx: Context<CancelOrderCaller>,
         side: Side,
