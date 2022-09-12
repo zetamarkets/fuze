@@ -47,7 +47,7 @@ You will need to modify the environment variable at `./.env` to the latest progr
 | Key         |                    Value                     |
 | ----------- | :------------------------------------------: |
 | NETWORK_URL |        https://api.devnet.solana.com         |
-| PROGRAM_ID  | 98utEQgwfbkvTKVS1seNQmFYFviaLsXAXqaWHr1V8JXF |
+| PROGRAM_ID  | BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7 |
 | SERVER_URL  |         https://server.zeta.markets          |
 
 Devnet PROGRAM_ID is subject to change based on redeployments.
@@ -59,7 +59,7 @@ Devnet PROGRAM_ID is subject to change based on redeployments.
 solana config set --url devnet
 
 # You will need to airdrop yourself some devnet solana to deploy the zeta cpi program.
-solana airdrop 5
+solana airdrop 2
 
 # Install packages.
 yarn install
