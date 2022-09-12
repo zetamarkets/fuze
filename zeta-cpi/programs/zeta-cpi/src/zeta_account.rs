@@ -223,22 +223,18 @@ impl ZetaGroup {
     /// 1. Live
     /// 2. Strike is set
     /// 3. Pricing update was within the required intervals.
-    pub fn validate_series_tradeable(
-        &self,
-        expiry_index: usize,
-        current_timestamp: u64,
-    ) -> Result<()> {
+    pub fn validate_series_tradeable(&self, expiry_index: usize) -> Result<()> {
         let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {
             msg!("Series status = {:?}", series_status);
-            return wrap_error!(Err(error!(FuzeErrorCode::MarketNotLive)));
+            return Err(error!(ZetaError::MarketNotLive));
         }
 
         let products = self.get_products_slice(expiry_index);
         // We don't need to check product.dirty as status implies that.
         // We only need to check a singular product for strike set in the series.
         if !products[0].strike.is_set() {
-            return wrap_error!(Err(error!(FuzeErrorCode::ProductStrikeUninitialized)));
+            return Err(error!(ZetaError::ProductStrikeUninitialized));
         }
         Ok(())
     }
