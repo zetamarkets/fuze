@@ -48,7 +48,7 @@ You will need to modify the environment variable at `./.env` to the latest progr
 | ----------- | :------------------------------------------: |
 | NETWORK_URL |        https://api.devnet.solana.com         |
 | PROGRAM_ID  | BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7 |
-| SERVER_URL  |         https://server.zeta.markets          |
+| SERVER_URL  |  https://dex-devnet-webserver.zeta.markets   |
 
 Devnet PROGRAM_ID is subject to change based on redeployments.
 
