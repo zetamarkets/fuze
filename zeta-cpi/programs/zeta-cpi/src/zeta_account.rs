@@ -227,14 +227,14 @@ impl ZetaGroup {
         let series_status = self.expiry_series[expiry_index].status()?;
         if series_status != ExpirySeriesStatus::Live {
             msg!("Series status = {:?}", series_status);
-            return Err(error!(ZetaError::MarketNotLive));
+            return Err(error!(FuzeErrorCode::MarketNotLive));
         }
 
         let products = self.get_products_slice(expiry_index);
         // We don't need to check product.dirty as status implies that.
         // We only need to check a singular product for strike set in the series.
         if !products[0].strike.is_set() {
-            return Err(error!(ZetaError::ProductStrikeUninitialized));
+            return Err(error!(FuzeErrorCode::ProductStrikeUninitialized));
         }
         Ok(())
     }
