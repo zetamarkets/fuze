@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@project-serum/anchor": "^0.18.2",
+    "@project-serum/anchor": "^0.24.2",
     "@solana/spl-token": "^0.1.8",
     "@zetamarkets/sdk": "^0.9.4",
     "dotenv": "^10.0.0",

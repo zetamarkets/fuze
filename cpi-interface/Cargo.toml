@@ -16,6 +16,6 @@ proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "1.0.60", features = ["full"] }
 anyhow = "1.0.32"
-anchor-syn = "0.18.2" 
+anchor-syn = "0.24.2" 
 heck = "0.3.2"
 

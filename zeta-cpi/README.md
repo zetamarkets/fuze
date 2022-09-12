@@ -34,7 +34,7 @@ npm install -g yarn
 npm i -g @project-serum/anchor-cli
 
 # Build from source for other operating systems.
-cargo install --git https://github.com/project-serum/anchor --tag v0.18.2 anchor-cli --locked
+cargo install --git https://github.com/project-serum/anchor --tag v0.24.2 anchor-cli --locked
 
 # If cargo install fails, you may need additional dependencies.
 sudo apt-get update && sudo apt-get upgrade && sudo apt-get install -y pkg-config build-essential libudev-dev

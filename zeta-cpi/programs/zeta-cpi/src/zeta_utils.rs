@@ -42,7 +42,7 @@ pub fn get_otm_amount(spot: u64, strike: u64, product: Kind) -> Result<u64> {
             .max(0)
             .try_into()
             .unwrap()),
-        _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
+        _ => return wrap_error!(Err(error!(FuzeErrorCode::UnsupportedKind))),
     }
 }
 
@@ -100,7 +100,7 @@ pub fn get_initial_margin_per_lot(
             }
             Side::Uninitialized => unreachable!(),
         },
-        _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
+        _ => return wrap_error!(Err(error!(FuzeErrorCode::UnsupportedKind))),
     };
 
     if product == Kind::Put && side == Side::Ask {
@@ -178,7 +178,7 @@ pub fn get_maintenance_margin_per_lot(
                     .unwrap()
             }
         }
-        _ => return wrap_error!(Err(ErrorCode::UnsupportedKind.into())),
+        _ => return wrap_error!(Err(error!(FuzeErrorCode::UnsupportedKind))),
     };
 
     if product == Kind::Put && !long {
