@@ -21,8 +21,9 @@ const SOL_AMOUNT = 1; // 1 SOL
 const USDC_AMOUNT = 10_000; // 10k USDC
 
 // Constants for addresses
-const zetaProgram = new anchor.web3.PublicKey(process.env!.zeta_program);
-const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET]["SOL/USD"];
+const zetaProgram = new anchor.web3.PublicKey(
+  "BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7"
+);
 
 describe("zeta-cpi", () => {
   // Configure the client.
@@ -42,6 +43,8 @@ describe("zeta-cpi", () => {
   anchor.setProvider(provider);
 
   const program = anchor.workspace.ZetaCpi as anchor.Program<ZetaCpi>;
+
+  const pythOracle = constants.PYTH_PRICE_FEEDS[Network.DEVNET][asset];
 
   let usdcMint,
     userUsdc,
@@ -105,8 +108,9 @@ describe("zeta-cpi", () => {
 
   it("Init margin account via CPI", async () => {
     // FYI can only init this once
-    const tx = await program.rpc.initializeMarginAccount({
-      accounts: {
+    const tx = await program.methods
+      .initializeMarginAccount()
+      .accounts({
         zetaProgram: Exchange.programId,
         initializeMarginCpiAccounts: {
           zetaGroup: Exchange.getZetaGroupAddress(asset),
@@ -116,8 +120,8 @@ describe("zeta-cpi", () => {
           zetaProgram: Exchange.programId,
           systemProgram: anchor.web3.SystemProgram.programId,
         },
-      },
-    });
+      })
+      .rpc();
     console.log("Your transaction signature", tx);
   });
 
@@ -130,68 +134,63 @@ describe("zeta-cpi", () => {
     } else {
       console.info("USDC exists, proceeding");
     }
-
     userUsdcAccount = await provider.connection.getAccountInfo(userUsdc);
     assert.ok(userUsdcAccount !== undefined);
 
     // Deposit all newly minted USDC into the margin account
-
     let [greeks, _greeksNonce] = await utils.getGreeks(
-      program.programId,
+      Exchange.programId,
       Exchange.getZetaGroupAddress(asset)
     );
-
-    const tx = await program.rpc.deposit(
-      new anchor.BN(utils.convertDecimalToNativeInteger(USDC_AMOUNT)),
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          depositCpiAccounts: {
-            zetaGroup: Exchange.getZetaGroupAddress(asset),
-            marginAccount: client.getMarginAccountAddress(asset),
-            vault: Exchange.getVaultAddress(asset),
-            userTokenAccount: userUsdc,
-            socializedLossAccount:
-              Exchange.getSocializedLossAccountAddress(asset),
-            authority: userKeypair.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            state: Exchange.stateAddress,
-            greeks,
-          },
+    const tx = await program.methods
+      .deposit(new anchor.BN(utils.convertDecimalToNativeInteger(USDC_AMOUNT)))
+      .accounts({
+        zetaProgram: Exchange.programId,
+        depositCpiAccounts: {
+          zetaGroup: Exchange.getZetaGroupAddress(asset),
+          marginAccount: client.getMarginAccountAddress(asset),
+          vault: Exchange.getVaultAddress(asset),
+          userTokenAccount: userUsdc,
+          socializedLossAccount:
+            Exchange.getSocializedLossAccountAddress(asset),
+          authority: userKeypair.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          state: Exchange.stateAddress,
+          greeks,
         },
-      }
-    );
+      })
+      .rpc();
     console.log("Your transaction signature", tx);
   });
 
   it("Withdraw USDC out of margin account via CPI", async () => {
     let [greeks, _greeksNonce] = await utils.getGreeks(
-      program.programId,
+      Exchange.programId,
       Exchange.getZetaGroupAddress(asset)
     );
 
     // Withdraw 10% of deposited funds
-    const tx = await program.rpc.withdraw(
-      new anchor.BN(utils.convertDecimalToNativeInteger(0.1 * USDC_AMOUNT)),
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          withdrawCpiAccounts: {
-            state: Exchange.stateAddress,
-            zetaGroup: Exchange.getZetaGroupAddress(asset),
-            marginAccount: client.getMarginAccountAddress(asset),
-            vault: Exchange.getVaultAddress(asset),
-            userTokenAccount: userUsdc,
-            authority: userKeypair.publicKey,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            greeks,
-            oracle: pythOracle,
-            socializedLossAccount:
-              Exchange.getSocializedLossAccountAddress(asset),
-          },
+    const tx = await program.methods
+      .withdraw(
+        new anchor.BN(utils.convertDecimalToNativeInteger(0.1 * USDC_AMOUNT))
+      )
+      .accounts({
+        zetaProgram: Exchange.programId,
+        withdrawCpiAccounts: {
+          state: Exchange.stateAddress,
+          zetaGroup: Exchange.getZetaGroupAddress(asset),
+          marginAccount: client.getMarginAccountAddress(asset),
+          vault: Exchange.getVaultAddress(asset),
+          userTokenAccount: userUsdc,
+          authority: userKeypair.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          greeks,
+          oracle: pythOracle,
+          socializedLossAccount:
+            Exchange.getSocializedLossAccountAddress(asset),
         },
-      }
-    );
+      })
+      .rpc();
     console.log("Your transaction signature", tx);
   });
 
@@ -207,8 +206,9 @@ describe("zeta-cpi", () => {
       openOrders
     );
 
-    const tx = await program.rpc.initializeOpenOrders({
-      accounts: {
+    const tx = await program.methods
+      .initializeOpenOrders()
+      .accounts({
         zetaProgram: Exchange.programId,
         initializeOpenOrdersCpiAccounts: {
           state: Exchange.stateAddress,
@@ -224,8 +224,8 @@ describe("zeta-cpi", () => {
           openOrdersMap,
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         },
-      },
-    });
+      })
+      .rpc();
 
     console.log("Your transaction signature", tx);
   });
@@ -246,41 +246,42 @@ describe("zeta-cpi", () => {
     };
 
     let [greeks, _greeksNonce] = await utils.getGreeks(
-      program.programId,
+      Exchange.programId,
       Exchange.getZetaGroupAddress(asset)
     );
 
-    const tx = await program.rpc.placeOrder(
-      new anchor.BN(utils.convertDecimalToNativeInteger(1)),
-      new anchor.BN(utils.convertDecimalToNativeLotSize(1)),
-      types.toProgramSide(side),
-      null,
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          placeOrderCpiAccounts: {
-            state: Exchange.stateAddress,
-            zetaGroup: Exchange.getZetaGroupAddress(asset),
-            marginAccount: client.getMarginAccountAddress(asset),
-            authority: userKeypair.publicKey,
-            dexProgram: constants.DEX_PID.devnet,
-            tokenProgram: TOKEN_PROGRAM_ID,
-            serumAuthority: Exchange.serumAuthority,
-            greeks,
-            openOrders: openOrders,
-            rent: anchor.web3.SYSVAR_RENT_PUBKEY,
-            marketAccounts: marketAccounts,
-            oracle: pythOracle,
-            marketNode: Exchange.getGreeks(asset).nodeKeys[market.marketIndex],
-            marketMint:
-              side == types.Side.BID
-                ? market.serumMarket.quoteMintAddress
-                : market.serumMarket.baseMintAddress,
-            mintAuthority: Exchange.mintAuthority,
-          },
+    const tx = await program.methods
+      .placeOrder(
+        new anchor.BN(utils.convertDecimalToNativeInteger(1)),
+        new anchor.BN(utils.convertDecimalToNativeLotSize(1)),
+        types.toProgramSide(side),
+        null
+      )
+      .accounts({
+        zetaProgram: Exchange.programId,
+        placeOrderCpiAccounts: {
+          state: Exchange.stateAddress,
+          zetaGroup: Exchange.getZetaGroupAddress(asset),
+          marginAccount: client.getMarginAccountAddress(asset),
+          authority: userKeypair.publicKey,
+          dexProgram: constants.DEX_PID.devnet,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          serumAuthority: Exchange.serumAuthority,
+          greeks,
+          openOrders: openOrders,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+          marketAccounts: marketAccounts,
+          oracle: pythOracle,
+          marketNode: Exchange.getGreeks(asset).nodeKeys[market.marketIndex],
+          marketMint:
+            side == types.Side.BID
+              ? market.serumMarket.quoteMintAddress
+              : market.serumMarket.baseMintAddress,
+          mintAuthority: Exchange.mintAuthority,
         },
-      }
-    );
+      })
+      .rpc();
+
     console.log("Your transaction signature", tx);
   });
 
@@ -304,25 +305,22 @@ describe("zeta-cpi", () => {
       eventQueue: market.serumMarket.decoded.eventQueue,
     };
 
-    const tx = await program.rpc.cancelOrder(
-      types.toProgramSide(side),
-      orders[0].orderId,
-      {
-        accounts: {
-          zetaProgram: Exchange.programId,
-          cancelOrderCpiAccounts: {
-            authority: userKeypair.publicKey,
-            cancelAccounts: cancelAccounts,
-          },
+    const tx = await program.methods
+      .cancelOrder(types.toProgramSide(side), orders[0].orderId)
+      .accounts({
+        zetaProgram: Exchange.programId,
+        cancelOrderCpiAccounts: {
+          authority: userKeypair.publicKey,
+          cancelAccounts: cancelAccounts,
         },
-      }
-    );
+      });
+
     console.log("Your transaction signature", tx);
   });
 
   it("Read Zeta data", async () => {
     let [greeks, _greeksNonce] = await utils.getGreeks(
-      program.programId,
+      Exchange.programId,
       Exchange.getZetaGroupAddress(asset)
     );
 
