@@ -15,20 +15,20 @@ use crate::zeta_calculations::*;
 use crate::zeta_constants::*;
 use crate::zeta_utils::*;
 
-declare_id!("7Aqh4kCtp3rdtHSk1mFXswyw37z9Ldad7vmgrbVD2h9J");
+declare_id!("EyMN1oYrsZKYCrfw1irrSZvdzkx9a7fVethRg8mAXYSL");
 
 #[program]
 pub mod zeta_cpi {
     use super::*;
 
-    pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> ProgramResult {
+    pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> Result<()> {
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_margin_cpi_accounts.clone(),
         )
     }
 
-    pub fn deposit(ctx: Context<DepositCaller>, amount: u64) -> ProgramResult {
+    pub fn deposit(ctx: Context<DepositCaller>, amount: u64) -> Result<()> {
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.deposit_cpi_accounts.clone(),
@@ -36,7 +36,7 @@ pub mod zeta_cpi {
         )
     }
 
-    pub fn withdraw(ctx: Context<WithdrawCaller>, amount: u64) -> ProgramResult {
+    pub fn withdraw(ctx: Context<WithdrawCaller>, amount: u64) -> Result<()> {
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.withdraw_cpi_accounts.clone(),
@@ -44,7 +44,7 @@ pub mod zeta_cpi {
         )
     }
 
-    pub fn initialize_open_orders(ctx: Context<InitializeOpenOrdersCaller>) -> ProgramResult {
+    pub fn initialize_open_orders(ctx: Context<InitializeOpenOrdersCaller>) -> Result<()> {
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_open_orders_cpi_accounts.clone(),
@@ -57,7 +57,7 @@ pub mod zeta_cpi {
         size: u64,
         side: Side,
         client_order_id: Option<u64>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         zeta_client::place_order(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.place_order_cpi_accounts.clone(),
@@ -76,7 +76,7 @@ pub mod zeta_cpi {
         order_type: OrderType,
         client_order_id: Option<u64>,
         tag: Option<String>,
-    ) -> ProgramResult {
+    ) -> Result<()> {
         zeta_client::place_order_v3(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.place_order_cpi_accounts.clone(),
@@ -89,11 +89,7 @@ pub mod zeta_cpi {
         )
     }
 
-    pub fn cancel_order(
-        ctx: Context<CancelOrderCaller>,
-        side: Side,
-        order_id: u128,
-    ) -> ProgramResult {
+    pub fn cancel_order(ctx: Context<CancelOrderCaller>, side: Side, order_id: u128) -> Result<()> {
         zeta_client::cancel_order(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.cancel_order_cpi_accounts.clone(),
@@ -102,7 +98,7 @@ pub mod zeta_cpi {
         )
     }
 
-    pub fn read_program_data(ctx: Context<ReadProgramData>) -> ProgramResult {
+    pub fn read_program_data(ctx: Context<ReadProgramData>) -> Result<()> {
         let zeta_group =
             deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
 
@@ -222,8 +218,8 @@ pub mod zeta_cpi {
     }
 }
 
-#[error]
-pub enum ErrorCode {
+#[error_code]
+pub enum FuzeErrorCode {
     #[msg("Account not mutable")]
     AccountNotMutable,
     #[msg("Unsupported kind")]

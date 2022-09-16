@@ -70,9 +70,9 @@ pub fn global_interface(
                 format!("{:?}", sighash_arr).parse().unwrap();
             quote! {
                 pub fn #method_name<'a,'b, 'c, 'info, T: anchor_lang::Accounts<'info> + anchor_lang::ToAccountMetas + anchor_lang::ToAccountInfos<'info>>(
-                    ctx: anchor_lang::CpiContext<'a, 'b, 'c, 'info, T>,
+                    ctx: anchor_lang::prelude::CpiContext<'a, 'b, 'c, 'info, T>,
                     #(#args),*
-                ) -> anchor_lang::solana_program::entrypoint::ProgramResult {
+                ) -> anchor_lang::prelude::Result<()> {
                     #args_struct
 
                     let ix = {
@@ -80,7 +80,7 @@ pub fn global_interface(
                             #(#args_no_tys),*
                         };
                         let mut ix_data = anchor_lang::AnchorSerialize::try_to_vec(&ix)
-                            .map_err(|_| anchor_lang::__private::ErrorCode::InstructionDidNotSerialize)?;
+                            .map_err(|_| anchor_lang::error::ErrorCode::InstructionDidNotSerialize)?;
                         let mut data = #sighash_tts.to_vec();
                         data.append(&mut ix_data);
                         let accounts = ctx.to_account_metas(None);
@@ -96,7 +96,9 @@ pub fn global_interface(
                         &ix,
                         &acc_infos,
                         ctx.signer_seeds,
-                    )
+                    )?;
+
+                    Ok(())
                 }
             }
         })
