@@ -99,3 +99,11 @@ pub fn cancel_order<'info>(
     let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
     zeta_interface::cancel_order(cpi_ctx, side, order_id)
 }
+
+pub fn cancel_all_market_orders<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: CancelOrder<'info>,
+) -> Result<()> {
+    let cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    zeta_interface::cancel_all_market_orders(cpi_ctx)
+}

@@ -98,6 +98,13 @@ pub mod zeta_cpi {
         )
     }
 
+    pub fn cancel_all_market_orders(ctx: Context<CancelOrderCaller>) -> Result<()> {
+        zeta_client::cancel_all_market_orders(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.cancel_order_cpi_accounts.clone(),
+        )
+    }
+
     pub fn read_program_data(ctx: Context<ReadProgramData>) -> Result<()> {
         let zeta_group =
             deserialize_account_info_zerocopy::<ZetaGroup>(&ctx.accounts.zeta_group).unwrap();
