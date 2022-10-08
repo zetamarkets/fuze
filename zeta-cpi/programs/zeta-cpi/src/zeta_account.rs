@@ -54,8 +54,8 @@ pub struct Greeks {
     pub _mark_prices_padding: [u64; 92],
     pub product_greeks: [ProductGreeks; 22], // TOTAL_MARKETS
     pub _product_greeks_padding: [ProductGreeks; 44],
-    pub update_timestamp: [u64; 2],          // per expiration.
-    pub _update_timestamp_padding: [u64; 4], // per expiration.
+    pub update_timestamp: [u64; 2],             // per expiration.
+    pub _update_timestamp_padding: [u64; 4],    // per expiration.
     pub retreat_expiration_timestamp: [u64; 2], // per expiration.
     pub _retreat_expiration_timestamp_padding: [u64; 4], // per expiration.
     pub interest_rate: [i64; 2],
@@ -63,9 +63,9 @@ pub struct Greeks {
     pub nodes: [u64; 5],                // 5 per expiration // f/k space nodes
     pub volatility: [u64; 10],          // 5 per expiration // volatility nodes
     pub _volatility_padding: [u64; 20], // 5 per expiration // volatility nodes
-    pub node_keys: [Pubkey; 138], // 4416
-    pub halt_force_pricing: [bool; 6], // 6
-    pub _padding: [u8; 1641],     // 10240 - 8585 - 8 - 6
+    pub node_keys: [Pubkey; 138],       // 4416
+    pub halt_force_pricing: [bool; 6],  // 6
+    pub _padding: [u8; 1641],           // 10240 - 8585 - 8 - 6
 } // 1 + 1104 + 2640 + 48 + 48 + 48 + 280 + 4416 = 8585
 
 impl Greeks {
@@ -88,7 +88,6 @@ impl Greeks {
         self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]
     }
 }
-
 
 #[account(zero_copy)]
 pub struct ZetaGroup {
@@ -464,6 +463,22 @@ impl ProductLedger {
                     .unwrap(),
                 )
                 .unwrap();
+        }
+
+        if product.kind == Kind::Future {
+            if long_lots > short_lots {
+                return long_initial_margin
+                    .checked_div(POSITION_PRECISION_DENOMINATOR)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+            } else {
+                return short_initial_margin
+                    .checked_div(POSITION_PRECISION_DENOMINATOR)
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+            }
         }
 
         long_initial_margin
