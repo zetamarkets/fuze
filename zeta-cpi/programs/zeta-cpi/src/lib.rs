@@ -15,7 +15,11 @@ use crate::zeta_calculations::*;
 use crate::zeta_constants::*;
 use crate::zeta_utils::*;
 
-declare_id!("EyMN1oYrsZKYCrfw1irrSZvdzkx9a7fVethRg8mAXYSL");
+#[cfg(feature = "devnet")]
+declare_id!("BG3oRikW8d16YjUEmX3ZxHm9SiJzrGtMhsSR8aCw1Cd7");
+
+#[cfg(not(feature = "devnet"))]
+declare_id!("ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD");
 
 #[program]
 pub mod zeta_cpi {
