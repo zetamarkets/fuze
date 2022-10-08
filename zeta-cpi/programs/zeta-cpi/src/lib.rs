@@ -25,6 +25,7 @@ pub mod zeta_cpi {
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_margin_cpi_accounts.clone(),
+            None
         )
     }
 
@@ -32,6 +33,7 @@ pub mod zeta_cpi {
         zeta_client::deposit(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.deposit_cpi_accounts.clone(),
+            None,
             amount,
         )
     }
@@ -40,6 +42,7 @@ pub mod zeta_cpi {
         zeta_client::withdraw(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.withdraw_cpi_accounts.clone(),
+            None,
             amount,
         )
     }
@@ -48,6 +51,7 @@ pub mod zeta_cpi {
         zeta_client::initialize_open_orders(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_open_orders_cpi_accounts.clone(),
+            None,
         )
     }
 
@@ -61,6 +65,7 @@ pub mod zeta_cpi {
         zeta_client::place_order(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.place_order_cpi_accounts.clone(),
+            None,
             price,
             size,
             side,
@@ -80,6 +85,7 @@ pub mod zeta_cpi {
         zeta_client::place_order_v3(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.place_order_cpi_accounts.clone(),
+            None,
             price,
             size,
             side,
@@ -93,6 +99,7 @@ pub mod zeta_cpi {
         zeta_client::cancel_order(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.cancel_order_cpi_accounts.clone(),
+            None,
             side,
             order_id,
         )
@@ -102,6 +109,7 @@ pub mod zeta_cpi {
         zeta_client::cancel_all_market_orders(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.cancel_order_cpi_accounts.clone(),
+            None,
         )
     }
 
@@ -181,8 +189,6 @@ pub mod zeta_cpi {
         let margin_account =
             deserialize_account_info_zerocopy::<MarginAccount>(&ctx.accounts.margin_account)
                 .unwrap();
-
-        msg!("Margin account balance: {:?}", margin_account.balance);
 
         // Position details for a given market index.
         let size = margin_account.product_ledgers[market_index].position.size;
