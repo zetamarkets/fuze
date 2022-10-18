@@ -17,6 +17,18 @@ pub struct InitializeMarginAccount<'info> {
 }
 
 #[derive(Accounts, Clone)]
+pub struct InitializeSpreadAccount<'info> {
+    #[account(mut)]
+    pub spread_account: UncheckedAccount<'info>,
+    pub authority: Signer<'info>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub zeta_program: AccountInfo<'info>,
+    pub system_program: Program<'info, System>,
+    pub zeta_group: AccountInfo<'info>,
+}
+
+#[derive(Accounts, Clone)]
 pub struct Deposit<'info> {
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
@@ -173,4 +185,27 @@ pub struct Liquidate<'info> {
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
     pub liquidated_margin_account: AccountInfo<'info>,
+}
+
+#[derive(Accounts, Clone)]
+pub struct PositionMovement<'info> {
+    pub state: AccountInfo<'info>,
+    pub zeta_group: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub spread_account: AccountInfo<'info>,
+    pub authority: Signer<'info>,
+    pub greeks: AccountInfo<'info>,
+    pub oracle: AccountInfo<'info>,
+}
+
+#[derive(Accounts, Clone)]
+pub struct TransferExcessSpreadBalance<'info> {
+    pub zeta_group: AccountInfo<'info>,
+    #[account(mut)]
+    pub margin_account: AccountInfo<'info>,
+    #[account(mut)]
+    pub spread_account: AccountInfo<'info>,
+    pub authority: Signer<'info>,
 }
