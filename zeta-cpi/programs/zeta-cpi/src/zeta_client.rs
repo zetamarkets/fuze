@@ -8,6 +8,7 @@ use cpi_interface::global_interface;
 #[global_interface]
 pub trait ZetaInterface<'info, T: Accounts<'info>> {
     fn initialize_margin_account(ctx: Context<T>) -> Result<()>;
+    fn initialize_spread_account(ctx: Context<T>) -> Result<()>;
     fn deposit(ctx: Context<T>, amount: u64) -> Result<()>;
     fn withdraw(ctx: Context<T>, amount: u64) -> Result<()>;
     fn initialize_open_orders(ctx: Context<T>) -> Result<()>;
@@ -29,6 +30,12 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
     ) -> Result<()>;
     fn cancel_order(ctx: Context<T>, side: Side, order_id: u128) -> Result<()>;
     fn cancel_all_market_orders(ctx: Context<T>) -> Result<()>;
+    fn position_movement(
+        ctx: Context<T>,
+        movement_type: MovementType,
+        movements: Vec<PositionMovementArg>,
+    ) -> Result<()>;
+    fn transfer_excess_spread_balance(ctx: Context<T>) -> Result<()>;
 }
 
 pub fn initialize_margin_account<'info>(
@@ -41,6 +48,18 @@ pub fn initialize_margin_account<'info>(
         cpi_ctx = cpi_ctx.with_signer(seeds);
     }
     zeta_interface::initialize_margin_account(cpi_ctx)
+}
+
+pub fn initialize_spread_account<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: InitializeSpreadAccount<'info>,
+    signer_seeds: Option<&[&[&[u8]]]>,
+) -> Result<()> {
+    let mut cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    if let Some(seeds) = signer_seeds {
+        cpi_ctx = cpi_ctx.with_signer(seeds);
+    }
+    zeta_interface::initialize_spread_account(cpi_ctx)
 }
 
 pub fn deposit<'info>(
@@ -139,4 +158,30 @@ pub fn cancel_all_market_orders<'info>(
         cpi_ctx = cpi_ctx.with_signer(seeds);
     }
     zeta_interface::cancel_all_market_orders(cpi_ctx)
+}
+
+pub fn position_movement<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: PositionMovement<'info>,
+    signer_seeds: Option<&[&[&[u8]]]>,
+    movement_type: MovementType,
+    movements: Vec<PositionMovementArg>,
+) -> Result<()> {
+    let mut cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    if let Some(seeds) = signer_seeds {
+        cpi_ctx = cpi_ctx.with_signer(seeds);
+    }
+    zeta_interface::position_movement(cpi_ctx, movement_type, movements)
+}
+
+pub fn transfer_excess_spread_balance<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: TransferExcessSpreadBalance<'info>,
+    signer_seeds: Option<&[&[&[u8]]]>,
+) -> Result<()> {
+    let mut cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    if let Some(seeds) = signer_seeds {
+        cpi_ctx = cpi_ctx.with_signer(seeds);
+    }
+    zeta_interface::transfer_excess_spread_balance(cpi_ctx)
 }

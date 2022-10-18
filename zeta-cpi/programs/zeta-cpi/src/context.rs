@@ -11,6 +11,12 @@ pub struct InitializeMarginAccountCaller<'info> {
 }
 
 #[derive(Accounts)]
+pub struct InitializeSpreadAccountCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub initialize_spread_cpi_accounts: InitializeSpreadAccount<'info>,
+}
+
+#[derive(Accounts)]
 pub struct DepositCaller<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub deposit_cpi_accounts: Deposit<'info>,
@@ -41,10 +47,28 @@ pub struct CancelOrderCaller<'info> {
 }
 
 #[derive(Accounts)]
+pub struct PositionMovementCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub position_movement_cpi_accounts: PositionMovement<'info>,
+}
+
+#[derive(Accounts)]
+pub struct TransferExcessSpreadBalanceCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub transfer_excess_spread_balance_cpi_accounts: TransferExcessSpreadBalance<'info>,
+}
+
+#[derive(Accounts)]
 pub struct ReadProgramData<'info> {
     pub state: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
     pub margin_account: AccountInfo<'info>,
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct PositionMovementArg {
+    pub index: u8,
+    pub size: i64,
 }

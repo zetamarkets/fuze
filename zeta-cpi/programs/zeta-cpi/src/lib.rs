@@ -25,11 +25,19 @@ declare_id!("ZETAxsqBRek56DhiGXrn75yj2NHU3aYUnxvHXpkf3aD");
 pub mod zeta_cpi {
     use super::*;
 
+    pub fn initialize_spread_account(ctx: Context<InitializeSpreadAccountCaller>) -> Result<()> {
+        zeta_client::initialize_spread_account(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.initialize_spread_cpi_accounts.clone(),
+            None,
+        )
+    }
+
     pub fn initialize_margin_account(ctx: Context<InitializeMarginAccountCaller>) -> Result<()> {
         zeta_client::initialize_margin_account(
             ctx.accounts.zeta_program.clone(),
             ctx.accounts.initialize_margin_cpi_accounts.clone(),
-            None
+            None,
         )
     }
 
@@ -157,7 +165,7 @@ pub mod zeta_cpi {
             let strike = product.strike.get_strike()?;
 
             // The serum market this product trades on.
-            let market = product.market;
+            let _market = product.market;
 
             // Call / Put / Future
             let kind = product.kind;
@@ -232,6 +240,32 @@ pub mod zeta_cpi {
         msg!("Margin account state: {:?}", margin_account_state);
 
         Ok(())
+    }
+
+    pub fn position_movement(
+        ctx: Context<PositionMovementCaller>,
+        movement_type: MovementType,
+        movements: Vec<PositionMovementArg>,
+    ) -> Result<()> {
+        zeta_client::position_movement(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts.position_movement_cpi_accounts.clone(),
+            None,
+            movement_type,
+            movements,
+        )
+    }
+
+    pub fn transfer_excess_spread_balance(
+        ctx: Context<TransferExcessSpreadBalanceCaller>,
+    ) -> Result<()> {
+        zeta_client::transfer_excess_spread_balance(
+            ctx.accounts.zeta_program.clone(),
+            ctx.accounts
+                .transfer_excess_spread_balance_cpi_accounts
+                .clone(),
+            None,
+        )
     }
 }
 

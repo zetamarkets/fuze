@@ -4,6 +4,7 @@ use std::convert::{From, TryInto};
 
 #[zero_copy]
 #[derive(Default)]
+#[repr(packed)]
 pub struct ProductGreeks {
     pub delta: u64,
     pub vega: AnchorDecimal,
@@ -12,6 +13,7 @@ pub struct ProductGreeks {
 
 #[zero_copy]
 #[derive(Default)]
+#[repr(packed)]
 pub struct AnchorDecimal {
     pub flags: u32,
     pub hi: u32,
@@ -48,25 +50,26 @@ unsafe impl Zeroable for AnchorDecimal {}
 unsafe impl Pod for AnchorDecimal {}
 
 #[account(zero_copy)]
+#[repr(packed)]
 pub struct Greeks {
-    pub nonce: u8,
-    pub mark_prices: [u64; 46],
-    pub _mark_prices_padding: [u64; 92],
-    pub product_greeks: [ProductGreeks; 22], // TOTAL_MARKETS
-    pub _product_greeks_padding: [ProductGreeks; 44],
-    pub update_timestamp: [u64; 2],             // per expiration.
-    pub _update_timestamp_padding: [u64; 4],    // per expiration.
-    pub retreat_expiration_timestamp: [u64; 2], // per expiration.
-    pub _retreat_expiration_timestamp_padding: [u64; 4], // per expiration.
-    pub interest_rate: [i64; 2],
-    pub _interest_rate_padding: [i64; 4],
-    pub nodes: [u64; 5],                // 5 per expiration // f/k space nodes
-    pub volatility: [u64; 10],          // 5 per expiration // volatility nodes
-    pub _volatility_padding: [u64; 20], // 5 per expiration // volatility nodes
-    pub node_keys: [Pubkey; 138],       // 4416
-    pub halt_force_pricing: [bool; 6],  // 6
-    pub _padding: [u8; 1641],           // 10240 - 8585 - 8 - 6
-} // 1 + 1104 + 2640 + 48 + 48 + 48 + 280 + 4416 = 8585
+    pub nonce: u8,                                       // 1
+    pub mark_prices: [u64; 46],                          // 8 * 46 = 368
+    pub _mark_prices_padding: [u64; 92],                 // 8 * 92 =  736
+    pub product_greeks: [ProductGreeks; 22],             // 22 * 40 = 880
+    pub _product_greeks_padding: [ProductGreeks; 44],    // 44 * 40 = 1760
+    pub update_timestamp: [u64; 2],                      // 16
+    pub _update_timestamp_padding: [u64; 4],             // 32
+    pub retreat_expiration_timestamp: [u64; 2],          // 16
+    pub _retreat_expiration_timestamp_padding: [u64; 4], // 32
+    pub interest_rate: [i64; 2],                         // 16
+    pub _interest_rate_padding: [i64; 4],                // 32
+    pub nodes: [u64; 5],                                 // 40
+    pub volatility: [u64; 10],                           // 80
+    pub _volatility_padding: [u64; 20],                  // 160
+    pub node_keys: [Pubkey; 138],                        // 138 * 32 = 4416
+    pub halt_force_pricing: [bool; 6],                   // 6
+    pub _padding: [u8; 1641],                            // 1641
+} // 10232
 
 impl Greeks {
     pub fn get_mark_prices_slice(&self, expiry_index: usize) -> &[u64] {
@@ -90,6 +93,7 @@ impl Greeks {
 }
 
 #[account(zero_copy)]
+#[repr(packed)]
 pub struct ZetaGroup {
     pub nonce: u8,                                // 1
     pub vault_nonce: u8,                          // 1
@@ -113,6 +117,7 @@ pub struct ZetaGroup {
 } // 7696
 
 #[zero_copy]
+#[repr(packed)]
 pub struct HaltState {
     _halted: bool,
     _spot_price: u64, // Set with precision 6.
@@ -127,6 +132,7 @@ pub struct HaltState {
 
 #[zero_copy]
 #[derive(Default)]
+#[repr(packed)]
 pub struct PricingParameters {
     pub option_trade_normalizer: AnchorDecimal, // 16
     pub future_trade_normalizer: AnchorDecimal, // 16
@@ -142,6 +148,7 @@ pub struct PricingParameters {
 
 #[zero_copy]
 #[derive(Default)]
+#[repr(packed)]
 pub struct MarginParameters {
     // Futures
     pub future_margin_initial: u64,
@@ -264,6 +271,7 @@ impl ZetaGroup {
 }
 
 #[zero_copy]
+#[repr(packed)]
 pub struct ExpirySeries {
     pub active_ts: u64,
     pub expiry_ts: u64,
@@ -293,6 +301,7 @@ impl ExpirySeries {
 // To mimic an Option<T> as anchor doesn't support zero_copy Option<T> deserialization yet.
 // Also, this implementation saves 7 bytes of space :)
 #[zero_copy]
+#[repr(packed)]
 pub struct Strike {
     pub is_set: bool,
     pub value: u64,
@@ -312,6 +321,7 @@ impl Strike {
 }
 
 #[zero_copy]
+#[repr(packed)]
 pub struct Product {
     // Serum market
     pub market: Pubkey,
@@ -682,6 +692,49 @@ impl ProductLedger {
 
 #[account(zero_copy)]
 #[repr(packed)]
+pub struct SpreadAccount {
+    pub authority: Pubkey,                 // 32
+    pub nonce: u8,                         // 1
+    pub balance: u64,                      // 8
+    pub series_expiry: [u64; 6],           // 48
+    pub positions: [Position; 46],         // 16 * 138 = 2208
+    pub positions_padding: [Position; 92], //
+    pub asset: Asset,                      // 1
+    pub padding: [u8; 262],                // 262
+} // 2560
+
+impl SpreadAccount {
+    pub fn empty(&self) -> bool {
+        if self.has_positions() {
+            return false;
+        }
+        self.balance == 0
+    }
+
+    pub fn has_positions(&self) -> bool {
+        self.positions.iter().any(|&x| !x.empty())
+    }
+
+    pub fn get_positions_slice_mut(&mut self, expiry_index: usize) -> &mut [Position] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
+        &mut self.positions[head..head + NUM_PRODUCTS_PER_SERIES]
+    }
+
+    pub fn get_positions_slice(&self, expiry_index: usize) -> &[Position] {
+        let head = expiry_index * NUM_PRODUCTS_PER_SERIES;
+        &self.positions[head..head + NUM_PRODUCTS_PER_SERIES]
+    }
+
+    pub fn has_position_in_expiry_index(&self, index: usize) -> bool {
+        self.get_positions_slice(index)
+            .iter()
+            .find(|x| x.size != 0)
+            .is_some()
+    }
+}
+
+#[account(zero_copy)]
+#[repr(packed)]
 pub struct MarginAccount {
     pub authority: Pubkey,                             // 32
     pub nonce: u8,                                     // 1
@@ -861,12 +914,13 @@ pub enum ExpirySeriesStatus {
 }
 
 #[repr(u8)]
-#[derive(PartialEq, Debug, Clone, Copy, AnchorSerialize, AnchorDeserialize)]
+#[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Kind {
     Uninitialized = 0,
     Call = 1,
     Put = 2,
     Future = 3,
+    Perp = 4,
 }
 
 #[repr(u8)]
@@ -899,6 +953,14 @@ pub enum Asset {
 pub enum MarginAccountType {
     Normal = 0,
     MarketMaker = 1,
+}
+
+#[repr(u8)]
+#[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Eq, Clone, Copy)]
+pub enum MovementType {
+    Undefined = 0,
+    Lock = 1,   // Margin account to spread
+    Unlock = 2, // Spread to margin account
 }
 
 pub enum MarginRequirement {

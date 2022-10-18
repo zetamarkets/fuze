@@ -55,6 +55,8 @@ describe("zeta-cpi", () => {
     side: types.Side;
 
   it("Setup by sourcing addresses and airdropping SOL", async () => {
+    let wallet = new Wallet(userKeypair);
+
     // Load the exchange object
     await Exchange.load(
       allAssets,
@@ -62,14 +64,14 @@ describe("zeta-cpi", () => {
       Network.DEVNET,
       provider.connection,
       utils.defaultCommitment(),
-      undefined,
+      wallet,
       0
     );
 
     // Load the client
     client = await Client.load(
       provider.connection,
-      new Wallet(userKeypair),
+      wallet,
       utils.defaultCommitment(),
       undefined,
       false
@@ -115,6 +117,25 @@ describe("zeta-cpi", () => {
         initializeMarginCpiAccounts: {
           zetaGroup: Exchange.getZetaGroupAddress(asset),
           marginAccount: client.getMarginAccountAddress(asset),
+          authority: userKeypair.publicKey,
+          payer: userKeypair.publicKey,
+          zetaProgram: Exchange.programId,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        },
+      })
+      .rpc();
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Init spread account via CPI", async () => {
+    // FYI can only init this once
+    const tx = await program.methods
+      .initializeSpreadAccount()
+      .accounts({
+        zetaProgram: Exchange.programId,
+        initializeSpreadCpiAccounts: {
+          zetaGroup: Exchange.getZetaGroupAddress(asset),
+          spreadAccount: client.getSpreadAccountAddress(asset),
           authority: userKeypair.publicKey,
           payer: userKeypair.publicKey,
           zetaProgram: Exchange.programId,
@@ -286,6 +307,7 @@ describe("zeta-cpi", () => {
   });
 
   it("Cancel order via CPI", async () => {
+    await utils.crankMarket(asset, 0);
     await client.updateState();
     let orders = client.getOrders(asset);
     if (orders.length === 0) {
@@ -324,7 +346,7 @@ describe("zeta-cpi", () => {
       Exchange.getZetaGroupAddress(asset)
     );
 
-    const tx = await program.rpc.readProgramData({
+    let tx = await program.rpc.readProgramData({
       accounts: {
         state: Exchange.stateAddress,
         zetaGroup: Exchange.getZetaGroupAddress(asset),
