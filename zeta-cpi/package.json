@@ -2,7 +2,7 @@
   "dependencies": {
     "@project-serum/anchor": "^0.24.2",
     "@solana/spl-token": "^0.1.8",
-    "@zetamarkets/sdk": "^0.17.0",
+    "@zetamarkets/sdk": "^0.21.0",
     "axios": "^0.27.2",
     "dotenv": "^10.0.0"
   },

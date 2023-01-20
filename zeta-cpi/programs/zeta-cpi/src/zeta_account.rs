@@ -54,7 +54,8 @@ unsafe impl Pod for AnchorDecimal {}
 pub struct Greeks {
     pub nonce: u8,                                       // 1
     pub mark_prices: [u64; 46],                          // 8 * 46 = 368
-    pub _mark_prices_padding: [u64; 92],                 // 8 * 92 =  736
+    pub _mark_prices_padding: [u64; 91],                 // 8 * 91 =  728
+    pub perp_mark_price: u64,                            // 8
     pub product_greeks: [ProductGreeks; 22],             // 22 * 40 = 880
     pub _product_greeks_padding: [ProductGreeks; 44],    // 44 * 40 = 1760
     pub update_timestamp: [u64; 2],                      // 16
@@ -68,7 +69,11 @@ pub struct Greeks {
     pub _volatility_padding: [u64; 20],                  // 160
     pub node_keys: [Pubkey; 138],                        // 138 * 32 = 4416
     pub halt_force_pricing: [bool; 6],                   // 6
-    pub _padding: [u8; 1641],                            // 1641
+    pub perp_update_timestamp: u64,                      // 8
+    pub perp_funding_delta: AnchorDecimal,               // 16
+    pub perp_latest_funding_rate: AnchorDecimal,         // 16
+    pub perp_latest_midpoint: u64,                       // 8
+    pub _padding: [u8; 1593],                            // 1593
 } // 10232
 
 impl Greeks {
@@ -90,6 +95,13 @@ impl Greeks {
     pub fn get_futures_price(&self, expiry_index: usize) -> u64 {
         self.mark_prices[expiry_index * NUM_PRODUCTS_PER_SERIES + NUM_PRODUCTS_PER_SERIES - 1]
     }
+
+    pub fn get_mark_price(&self, product_index: usize) -> u64 {
+        return match product_index {
+            PERP_INDEX => self.perp_mark_price,
+            _ => self.mark_prices[product_index],
+        };
+    }
 }
 
 #[account(zero_copy)]
@@ -105,30 +117,36 @@ pub struct ZetaGroup {
     pub greeks: Pubkey,                           // 32
     pub pricing_parameters: PricingParameters,    // 112
     pub margin_parameters: MarginParameters,      // 120
-    pub products: [Product; 46],                  // 138 * 43 = 5934
-    pub products_padding: [Product; 92],          //
+    pub products: [Product; 46],                  // 137 * 43 = 5891
+    pub products_padding: [Product; 91],          //
+    pub perp: Product,                            // 43
     pub expiry_series: [ExpirySeries; 2],         // 32 * 6 = 192
     pub expiry_series_padding: [ExpirySeries; 4], //
     pub total_insurance_vault_deposits: u64,      // 8
     pub asset: Asset,                             // 1
     pub expiry_interval_seconds: u32,             // 4
     pub new_expiry_threshold_seconds: u32,        // 4
-    pub padding: [u8; 1054],                      // 1054
+    pub perp_parameters: PerpParameters,          // 24
+    pub perp_sync_queue: Pubkey,                  // 32
+    pub oracle_backup_feed: Pubkey,               // 32
+    pub padding: [u8; 966],                       // 966
 } // 7696
 
 #[zero_copy]
 #[repr(packed)]
 pub struct HaltState {
-    _halted: bool,
-    _spot_price: u64, // Set with precision 6.
-    _timestamp: u64,
-    _mark_prices_set: [bool; 2],
-    _mark_prices_set_padding: [bool; 4],
-    _market_nodes_cleaned: [bool; 2],
-    _market_nodes_cleaned_padding: [bool; 4],
-    _market_cleaned: [bool; 46],
-    _market_cleaned_padding: [bool; 92],
-} // 1 + 8 + 8 + 6 + 6 + 46 + 92 = 167
+    halted: bool,                             // 1
+    spot_price: u64,                          // 8
+    timestamp: u64,                           // 8
+    mark_prices_set: [bool; 2],               // 2
+    _mark_prices_set_padding: [bool; 3],      // 3
+    perp_mark_price_set: bool,                // 1
+    market_nodes_cleaned: [bool; 2],          // 2
+    _market_nodes_cleaned_padding: [bool; 4], // 4
+    market_cleaned: [bool; 46],               // 46
+    _market_cleaned_padding: [bool; 91],      // 91
+    perp_market_cleaned: bool,                // 1
+} // 167
 
 #[zero_copy]
 #[derive(Default)]
@@ -182,23 +200,31 @@ impl ZetaGroup {
     }
 
     pub fn get_product_and_expiry_index_by_key(&self, market: &Pubkey) -> Result<(usize, usize)> {
+        if self.perp.market == *market {
+            return Ok((PERP_INDEX, TOTAL_EXPIRIES));
+        }
+
         let index = self
             .products
             .binary_search_by_key(&market, |product| &product.market);
 
         match index {
-            Err(_) => wrap_error!(Err(error!(FuzeErrorCode::InvalidProductMarketKey))),
+            Err(_) => Err(error!(ZetaError::InvalidProductMarketKey)),
             Ok(i) => Ok((i, self.get_expiry_index_by_product_index(i))),
         }
     }
 
     pub fn get_product_index_by_key(&self, market: &Pubkey) -> Result<usize> {
+        if self.perp.market == *market {
+            return Ok(PERP_INDEX);
+        }
+
         let index = self
             .products
             .binary_search_by_key(&market, |product| &product.market);
 
         match index {
-            Err(_) => wrap_error!(Err(error!(FuzeErrorCode::InvalidProductMarketKey))),
+            Err(_) => Err(error!(ZetaError::InvalidProductMarketKey)),
             Ok(i) => Ok(i),
         }
     }
@@ -209,7 +235,7 @@ impl ZetaGroup {
             .binary_search_by_key(&market, |product| &product.market);
 
         match index {
-            Err(_) => wrap_error!(Err(error!(FuzeErrorCode::InvalidProductMarketKey))),
+            Err(_) => Err(error!(ZetaError::InvalidProductMarketKey)),
             Ok(i) => Ok(self.get_expiry_series_by_product_index(i)),
         }
     }
@@ -423,9 +449,12 @@ impl ProductLedger {
         spot: u64,
         margin_parameters: &MarginParameters,
     ) -> u64 {
-        let strike: u64 = match product.strike.get_strike() {
-            Ok(strike) => strike,
-            Err(_) => return 0,
+        let strike: u64 = match product.kind == Kind::Perp {
+            true => 0,
+            false => match product.strike.get_strike() {
+                Ok(strike) => strike,
+                Err(_) => return 0,
+            },
         };
 
         let mut long_lots: u64 = self.order_state.opening_orders[BID_ORDERS_INDEX];
@@ -475,7 +504,7 @@ impl ProductLedger {
                 .unwrap();
         }
 
-        if product.kind == Kind::Future {
+        if product.kind == Kind::Future || product.kind == Kind::Perp {
             if long_lots > short_lots {
                 return long_initial_margin
                     .checked_div(POSITION_PRECISION_DENOMINATOR)
@@ -511,9 +540,12 @@ impl ProductLedger {
             return 0;
         }
 
-        let strike: u64 = match product.strike.get_strike() {
-            Ok(strike) => strike,
-            Err(_) => return 0,
+        let strike: u64 = match product.kind == Kind::Perp {
+            true => 0,
+            false => match product.strike.get_strike() {
+                Ok(strike) => strike,
+                Err(_) => return 0,
+            },
         };
 
         let maintenance_margin_per_lot = get_maintenance_margin_per_lot(
@@ -540,9 +572,12 @@ impl ProductLedger {
         spot: u64,
         margin_parameters: &MarginParameters,
     ) -> u64 {
-        let strike: u64 = match product.strike.get_strike() {
-            Ok(strike) => strike,
-            Err(_) => return 0,
+        let strike: u64 = match product.kind == Kind::Perp {
+            true => 0,
+            false => match product.strike.get_strike() {
+                Ok(strike) => strike,
+                Err(_) => return 0,
+            },
         };
 
         let mut long_lots: u128 = self.order_state.opening_orders[BID_ORDERS_INDEX].into();
@@ -610,9 +645,12 @@ impl ProductLedger {
         margin_parameters: &MarginParameters,
         concession_percentage: u8,
     ) -> u64 {
-        let strike: u64 = match product.strike.get_strike() {
-            Ok(strike) => strike,
-            Err(_) => return 0,
+        let strike: u64 = match product.kind == Kind::Perp {
+            true => 0,
+            false => match product.strike.get_strike() {
+                Ok(strike) => strike,
+                Err(_) => return 0,
+            },
         };
 
         let long_lots: u64 = self.order_state.opening_orders[BID_ORDERS_INDEX];
@@ -696,7 +734,8 @@ pub struct SpreadAccount {
     pub authority: Pubkey,                 // 32
     pub nonce: u8,                         // 1
     pub balance: u64,                      // 8
-    pub series_expiry: [u64; 6],           // 48
+    pub series_expiry: [u64; 5],           // 48
+    pub _series_expiry_padding: u64,       //
     pub positions: [Position; 46],         // 16 * 138 = 2208
     pub positions_padding: [Position; 92], //
     pub asset: Asset,                      // 1
@@ -741,13 +780,17 @@ pub struct MarginAccount {
     pub balance: u64,                                  // 8
     pub force_cancel_flag: bool,                       // 1
     pub open_orders_nonce: [u8; 138],                  // 138
-    pub series_expiry: [u64; 6],                       // 48
+    pub series_expiry: [u64; 5],                       // 48
+    pub _series_expiry_padding: u64,                   //
     pub product_ledgers: [ProductLedger; 46],          // 138 * 40 = 5520
-    pub _product_ledgers_padding: [ProductLedger; 92], //
+    pub _product_ledgers_padding: [ProductLedger; 91], //
+    pub perp_product_ledger: ProductLedger,            //
     pub rebalance_amount: i64,                         // 8
     pub asset: Asset,                                  // 1
     pub account_type: MarginAccountType,               // 1
-    pub _padding: [u8; 386],                           // 386
+    pub last_funding_delta: AnchorDecimal,             // 16
+    pub delegated_pubkey: Pubkey,                      // 32
+    pub _padding: [u8; 338],                           // 338
 } // 6144
 
 impl MarginAccount {
@@ -763,7 +806,7 @@ impl MarginAccount {
 
     // Calculates the total initial margin for all open orders and positions.
     pub fn get_initial_margin(&self, greeks: &Greeks, zeta_group: &ZetaGroup, spot: u64) -> u64 {
-        let initial_margin_requirement = self
+        let initial_margin_requirement: u64 = self
             .product_ledgers
             .iter()
             .enumerate()
@@ -777,7 +820,17 @@ impl MarginAccount {
             })
             .sum();
 
+        // Perps have a different layout
+        let perp_margin_requirement: u64 = self.perp_product_ledger.get_initial_margin(
+            spot,
+            &zeta_group.perp,
+            spot,
+            &zeta_group.margin_parameters,
+        );
+
         initial_margin_requirement
+            .checked_add(perp_margin_requirement)
+            .unwrap()
     }
 
     // Calculates the total maintenance margin for all positions only.
@@ -787,7 +840,7 @@ impl MarginAccount {
         zeta_group: &ZetaGroup,
         spot: u64,
     ) -> u64 {
-        let maintenance_margin_requirement = self
+        let maintenance_margin_requirement: u64 = self
             .product_ledgers
             .iter()
             .enumerate()
@@ -801,11 +854,22 @@ impl MarginAccount {
             })
             .sum();
 
+        // Perps have a different layout
+        let perp_margin_requirement: u64 = self.perp_product_ledger.get_maintenance_margin(
+            spot,
+            &zeta_group.perp,
+            spot,
+            &zeta_group.margin_parameters,
+        );
+
         maintenance_margin_requirement
+            .checked_add(perp_margin_requirement)
+            .unwrap()
     }
 
     pub fn get_unrealized_pnl(&self, greeks: &Greeks) -> i64 {
-        self.product_ledgers
+        let pnl: i64 = self
+            .product_ledgers
             .iter()
             .enumerate()
             .map(|(i, product_ledger)| {
@@ -813,7 +877,12 @@ impl MarginAccount {
                     .position
                     .get_unrealized_pnl(greeks.mark_prices[i]) as i128) as i64
             })
-            .sum()
+            .sum();
+
+        // Perps have a different layout
+        let perp_pnl: i64 = self.perp_product_ledger.position.get_unrealized_pnl(spot);
+
+        pnl.checked_add(perp_pnl).unwrap()
     }
 
     pub fn get_maintenance_margin_including_orders(
@@ -822,7 +891,7 @@ impl MarginAccount {
         zeta_group: &ZetaGroup,
         spot: u64,
     ) -> u64 {
-        let maintenance_margin_requirement = self
+        let maintenance_margin_requirement: u64 = self
             .product_ledgers
             .iter()
             .enumerate()
@@ -836,7 +905,19 @@ impl MarginAccount {
             })
             .sum();
 
+        // Perps have a different layout
+        let perp_margin_requirement: u64 = self
+            .perp_product_ledger
+            .get_maintenance_margin_including_orders(
+                spot,
+                &zeta_group.perp,
+                spot,
+                &zeta_group.margin_parameters,
+            );
+
         maintenance_margin_requirement
+            .checked_add(perp_margin_requirement)
+            .unwrap()
     }
 
     pub fn is_market_maker(&self) -> bool {
@@ -850,7 +931,7 @@ impl MarginAccount {
         spot: u64,
         concession: u8,
     ) -> u64 {
-        let maintenance_margin_requirement = self
+        let maintenance_margin_requirement: u64 = self
             .product_ledgers
             .iter()
             .enumerate()
@@ -865,7 +946,19 @@ impl MarginAccount {
             })
             .sum();
 
+        // Perps have a different layout
+        let perp_margin_requirement: u64 =
+            self.perp_product_ledger.get_margin_market_maker_concession(
+                spot,
+                &zeta_group.perp,
+                spot,
+                &zeta_group.margin_parameters,
+                concession,
+            );
+
         maintenance_margin_requirement
+            .checked_add(perp_margin_requirement)
+            .unwrap()
     }
 
     pub fn get_margin_requirement(
@@ -937,6 +1030,8 @@ pub enum OrderType {
     Limit = 0,
     PostOnly = 1,
     FillOrKill = 2,
+    ImmediateOrCancel = 3,
+    PostOnlySlide = 4,
 }
 
 #[repr(u8)]

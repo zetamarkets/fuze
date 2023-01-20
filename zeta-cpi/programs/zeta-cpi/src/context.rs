@@ -41,6 +41,12 @@ pub struct PlaceOrderCaller<'info> {
 }
 
 #[derive(Accounts)]
+pub struct PlacePerpOrderCaller<'info> {
+    pub zeta_program: AccountInfo<'info>,
+    pub place_perp_order_cpi_accounts: PlacePerpOrder<'info>,
+}
+
+#[derive(Accounts)]
 pub struct CancelOrderCaller<'info> {
     pub zeta_program: AccountInfo<'info>,
     pub cancel_order_cpi_accounts: CancelOrder<'info>,

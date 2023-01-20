@@ -28,6 +28,26 @@ pub trait ZetaInterface<'info, T: Accounts<'info>> {
         client_order_id: Option<u64>,
         tag: Option<String>,
     ) -> Result<()>;
+    fn place_order_v4(
+        ctx: Context<T>,
+        price: u64,
+        size: u64,
+        side: Side,
+        order_type: OrderType,
+        client_order_id: Option<u64>,
+        tag: Option<String>,
+        tif_offset: Option<u16>,
+    ) -> Result<()>;
+    fn place_perp_order_v2(
+        ctx: Context<T>,
+        price: u64,
+        size: u64,
+        side: Side,
+        order_type: OrderType,
+        client_order_id: Option<u64>,
+        tag: Option<String>,
+        tif_offset: Option<u16>,
+    ) -> Result<()>;
     fn cancel_order(ctx: Context<T>, side: Side, order_id: u128) -> Result<()>;
     fn cancel_all_market_orders(ctx: Context<T>) -> Result<()>;
     fn position_movement(
@@ -132,6 +152,62 @@ pub fn place_order_v3<'info>(
         cpi_ctx = cpi_ctx.with_signer(seeds);
     }
     zeta_interface::place_order_v3(cpi_ctx, price, size, side, order_type, client_order_id, tag)
+}
+
+pub fn place_order_v4<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: PlaceOrder<'info>,
+    signer_seeds: Option<&[&[&[u8]]]>,
+    price: u64,
+    size: u64,
+    side: Side,
+    order_type: OrderType,
+    client_order_id: Option<u64>,
+    tag: Option<String>, // Not stored, only used when sniffing the transactions
+    tif_offset: Option<u16>,
+) -> Result<()> {
+    let mut cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    if let Some(seeds) = signer_seeds {
+        cpi_ctx = cpi_ctx.with_signer(seeds);
+    }
+    zeta_interface::place_order_v4(
+        cpi_ctx,
+        price,
+        size,
+        side,
+        order_type,
+        client_order_id,
+        tag,
+        tif_offset,
+    )
+}
+
+pub fn place_perp_order_v2<'info>(
+    zeta_program: AccountInfo<'info>,
+    cpi_accounts: PlaceOrder<'info>,
+    signer_seeds: Option<&[&[&[u8]]]>,
+    price: u64,
+    size: u64,
+    side: Side,
+    order_type: OrderType,
+    client_order_id: Option<u64>,
+    tag: Option<String>, // Not stored, only used when sniffing the transactions
+    tif_offset: Option<u16>,
+) -> Result<()> {
+    let mut cpi_ctx = CpiContext::new(zeta_program, cpi_accounts);
+    if let Some(seeds) = signer_seeds {
+        cpi_ctx = cpi_ctx.with_signer(seeds);
+    }
+    zeta_interface::place_perp_order_v2(
+        cpi_ctx,
+        price,
+        size,
+        side,
+        order_type,
+        client_order_id,
+        tag,
+        tif_offset,
+    )
 }
 
 pub fn cancel_order<'info>(

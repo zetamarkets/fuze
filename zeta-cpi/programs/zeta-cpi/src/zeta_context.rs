@@ -60,6 +60,8 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
+    pub oracle_backup_feed: AccountInfo<'info>,
+    pub oracle_backup_program: AccountInfo<'info>,
     #[account(mut)]
     pub socialized_loss_account: AccountInfo<'info>,
 }
@@ -138,6 +140,8 @@ pub struct PlaceOrder<'info> {
     pub rent: Sysvar<'info, Rent>,
     pub market_accounts: MarketAccounts<'info>,
     pub oracle: AccountInfo<'info>,
+    pub oracle_backup_feed: AccountInfo<'info>,
+    pub oracle_backup_program: AccountInfo<'info>,
     #[account(mut)]
     pub market_node: AccountInfo<'info>,
     #[account(mut)]
@@ -181,6 +185,8 @@ pub struct Liquidate<'info> {
     #[account(mut)]
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
+    pub oracle_backup_feed: AccountInfo<'info>,
+    pub oracle_backup_program: AccountInfo<'info>,
     pub market: AccountInfo<'info>,
     pub zeta_group: AccountInfo<'info>,
     #[account(mut)]
@@ -198,6 +204,8 @@ pub struct PositionMovement<'info> {
     pub authority: Signer<'info>,
     pub greeks: AccountInfo<'info>,
     pub oracle: AccountInfo<'info>,
+    pub oracle_backup_feed: AccountInfo<'info>,
+    pub oracle_backup_program: AccountInfo<'info>,
 }
 
 #[derive(Accounts, Clone)]
