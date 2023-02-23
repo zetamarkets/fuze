@@ -1,7 +1,7 @@
 <div align="center">
   <img height="120px" src="./logo.png" />
 
-  <h1 style="margin-top: 0px">Zeta FuZe 🧬</h1>
+  <h1 style="margin-top: 0px">Zeta FuZe [DEPRECATED] 🧬</h1>
 
   <p>
     <a href="https://discord.gg/dD7YREfBkR"
@@ -17,7 +17,7 @@
   </p>
 </div>
 
-# Zeta FuZe
+# Zeta FuZe [DEPRECATED] - Please use [Zeta ABI](https://github.com/zetamarkets/zeta-abi)
 
 FuZe is Zeta's cross-program integration ecosystem.
 
